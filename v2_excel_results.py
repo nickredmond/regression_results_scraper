@@ -24,7 +24,7 @@ def latest_build_id(base_url, view_name, job_name):
 def fill_from_hex_value(hex_value):
 	return PatternFill(start_color=hex_value, end_color=hex_value, fill_type='solid')
 
-def paint_cell(ws, row, col, text, fillColor=None, is_bold=False, font_size=12, border=None, is_percent=False, font_color='000000'):
+def paint_cell(ws, row, col, text, fillColor=None, is_bold=False, is_underline=False, font_size=12, border=None, is_percent=False, font_color='000000'):
 	cell_location = chr(col) + str(row)
 	ws[cell_location] = text
 	if fillColor:
@@ -33,7 +33,8 @@ def paint_cell(ws, row, col, text, fillColor=None, is_bold=False, font_size=12, 
 		ws[cell_location].border = border
 	if is_percent:
 		ws[cell_location].number_format = '0%'
-	ws[cell_location].font = Font(bold=is_bold, size=font_size, color=font_color)
+	underline_value = 'single' if is_underline else None
+	ws[cell_location].font = Font(bold=is_bold, underline=underline_value, size=font_size, color=font_color)
 
 def paint_hyperlink(ws, row, col, link):
 	cell_location = chr(col) + str(row)
@@ -127,12 +128,14 @@ class ResultsTable:
 class FailureList:
 	COLUMN = ResultsTable.STARTING_COL
 
-	def __init__(self, app_name, failures):
+	def __init__(self, app_name, filepath, failures):
 		self.app_name = app_name
 		self.failures = failures
+		self.filepath = filepath
 
 	def write_results(self, worksheet, row_number):
 		paint_cell(worksheet, row_number, FailureList.COLUMN, self.app_name)
+		paint_cell(worksheet, row_number, FailureList.COLUMN+1, self.filepath)
 		row = row_number + 1
 		for link in self.failures:
 			paint_hyperlink(worksheet, row, FailureList.COLUMN, link)
@@ -221,16 +224,25 @@ def construct_test_results_for_build(job_config, build_number, is_rerun=False):
 	result = { 'failure_links': [] }
 	application = None
 	job = job_config.job(is_rerun)
+	filepath = None
 
 	try:
 		data = json_response_from_request(job_config.base_url, job_config.view_name, job, build_number, True)
 		for case in data['suites'][0]['cases']:
 			class_name_parts = case['className'].split('.')
+			if not filepath:
+				filepath_tokens = class_name_parts[job_config.filepath_start_index:job_config.filepath_end_index+1]
+				filepath = "/".join(filepath_tokens)
+			# if filepath is None:
+			# 	filepath = fp
+			# elif filepath != fp:
+			# 	print('outrageous! ' + str(filepath) + ', ' + str(fp))
 			for parser in job_config.results_parsers:
 				result = parser.handle_test_case(job_config, case, class_name_parts, job, build_number, result)
 			
 		result['number_passing'] = data['passCount']
 		result['number_failing'] = data['failCount']
+		result['filepath'] = filepath
 
 		for parser in job_config.results_parsers:
 			if callable(getattr(parser, 'parse_application_title', None)):
@@ -244,8 +256,8 @@ def construct_test_results_for_build(job_config, build_number, is_rerun=False):
 class JobReportingConfig:
 	DEFAULT_BASE_URL = 'http://172.31.8.12:8080'
 
-	def __init__(self, view_name, job_name, rerun_name, classname_index, application_delimiter=None, test_name_delimiter=None, 
-		base_url=None):
+	def __init__(self, view_name, job_name, rerun_name, classname_index, filepath_range, application_delimiter=None, 
+		test_name_delimiter=None, base_url=None):
 		self.view_name = view_name
 		self.job_name = job_name
 		self.rerun_name = rerun_name
@@ -255,6 +267,8 @@ class JobReportingConfig:
 		self.results_parsers = []
 		self.base_url = base_url if base_url else JobReportingConfig.DEFAULT_BASE_URL
 		self.test_name_delimiter = test_name_delimiter
+		self.filepath_start_index = filepath_range[0]
+		self.filepath_end_index = filepath_range[1]
 
 	def add_app_title_mapping(self, app_key, title):
 		self.app_title_mappings[app_key] = title
@@ -267,7 +281,7 @@ class JobReportingConfig:
 
 	@classmethod
 	def gl_regression_config(cls):
-		config = JobReportingConfig('GL Regression', 'GL Regression Build', 'GL Regression Test Fail', 7)
+		config = JobReportingConfig('GL Regression', 'GL Regression Build', 'GL Regression Test Fail', 7, (3, 7))
 		config.add_app_title_mapping('accounts_receivable', 'Accounts Receivable')
 		config.add_app_title_mapping('accounting_tools', 'Accounting Tools')
 		config.add_app_title_mapping('application_environment', 'Application Environment')
@@ -299,7 +313,8 @@ class JobReportingConfig:
 
 	@classmethod
 	def gl1000r_regression_config(cls):
-		config = JobReportingConfig('GL Regression', 'GL1000R_REGRESSION_TEST', 'GL1000R Rerun Test Failures', 8, 'GL1000_')
+		config = JobReportingConfig('GL Regression', 'GL1000R_REGRESSION_TEST', 'GL1000R Rerun Test Failures', 
+			8, (3, 8), 'GL1000_')
 		config.add_app_title_mapping('miscellaneous', 'Miscellaneous')
 		config.add_app_title_mapping('line_field', 'Line Number')
 		config.add_app_title_mapping('line_number', 'Line Number')
@@ -329,7 +344,7 @@ class JobReportingConfig:
 
 	@classmethod
 	def navigation_config(cls, job_name):
-		config = JobReportingConfig('Navigations', job_name, None, 7, test_name_delimiter='_nav[0-9]+_[0-9]+_navigation_')
+		config = JobReportingConfig('Navigations', job_name, None, 7, (3, 6), test_name_delimiter='_nav[0-9]+_[0-9]+_navigation_')
 		config.add_results_parser(TestCaseNamesParser)
 		return config
 
@@ -382,6 +397,7 @@ def compose_rerun_regression_results(job_config):
 		second = filtered[0] if len(filtered) > 0 else result
 		aggregated_results.append({
 			'app_title': result['app_title'],
+			'filepath': result['filepath'],
 			'number_passing': (result['number_passing'] + result['number_failing']) - second['number_failing'],
 			'number_failing': second['number_failing'],
 			'failure_links': second['failure_links']
@@ -398,9 +414,12 @@ def compose_single_job_regression_results(job_config, app_title):
 	failure_links = []
 
 	tests = []
+	filepath = None
 
 	for build_number in construct_build_number_range(job_config):
 		new_results = construct_test_results_for_build(job_config, build_number)
+		if not filepath:
+			filepath = new_results['filepath']
 		if new_results:
 			for case in new_results['test_cases']:
 				case_name_tokens = re.compile(job_config.test_name_delimiter).split(case['name'])
@@ -414,20 +433,13 @@ def compose_single_job_regression_results(job_config, app_title):
 					'failure_link': failure_link
 				}
 				tests.append(new_test)
-				# if case_name not in case_names:
-				# 	case_names.append(case_name)
-				# 	#status_count += (1 if case['is_passing'] else -1)
-				# 	if case['is_passing']:
-				# 		passing_count +=1
-				# 	else:
-				# 		failing_count += 1
-				# 	if case['failure_url']:
-				# 		failure_links.append({ 'value': case_name, 'url': case['failure_url'] })
+
 	passing_count = len(list(filter(lambda test: test['is_passing'], tests)))
 	failing_count = len(list(filter(lambda test: not test['is_passing'], tests)))
-	failure_links = [test['failure_link'] for test in tests if test['failure_link']] # list(filter(lambda test: test['failure_link'], tests))
+	failure_links = [test['failure_link'] for test in tests if test['failure_link']]
 	return {
 		'app_title': app_title,
+		'filepath': filepath,
 		'number_passing': passing_count,
 		'number_failing': failing_count,
 		'failure_links': failure_links
@@ -440,47 +452,16 @@ def write_results_to_worksheet(workbook, sheet_name, test_results, is_new_sheet=
 	table = ResultsTable(sheet_name)
 	for result in test_results:
 		table.add_result(result['app_title'], result['number_passing'], result['number_failing'])
-	next_row = table.write_results(worksheet)
+	next_row = table.write_results(worksheet) + 1
+
+	# paint_cell(ws, row, col, text, fillColor=None, is_bold=False, font_size=12, border=None, is_percent=False, font_color='000000'):
+	paint_cell(worksheet, next_row, FailureList.COLUMN, 'Application', is_bold=True, is_underline=True, font_size=14)
+	paint_cell(worksheet, next_row, FailureList.COLUMN+1, 'File Path', is_bold=True, is_underline=True, font_size=14)
+	next_row += 1
 
 	for result in test_results:
-		failures = FailureList(result['app_title'], result['failure_links'])
+		failures = FailureList(result['app_title'], result['filepath'], result['failure_links'])
 		next_row = failures.write_results(worksheet, next_row + 1)
-
-# def make_build_numbers_from_argument(value):
-# 	numbers = value.split('-')
-# 	builds = []
-# 	if len(numbers) == 2:
-# 		builds = range(int(numbers[0]), int(numbers[1]) + 1)
-# 	else:
-# 		numbers = value.split(',')
-# 		for number in numbers:
-# 			builds.append(number)
-# 	return builds
-
-# gl_reg_builds = None
-# gl_reg_reruns = None
-# gl1000r_builds = None
-# gl1000r_reruns = None
-
-# for arg in sys.argv[1:]:
-# 	if '=' not in arg:
-# 		raise Exception('Must pass key-value arguments, e.g. view=\'GL Regression\'')
-# 	key, value = arg.split('=')
-# 	if key == 'gl_reg_builds':
-# 		gl_reg_builds = make_build_numbers_from_argument(value)
-# 	elif key == 'gl_reg_reruns':
-# 		gl_reg_reruns = make_build_numbers_from_argument(value)
-# 	elif key == 'gl1000r_builds':
-# 		gl1000r_builds = make_build_numbers_from_argument(value)
-# 	elif key == 'gl1000r_reruns':
-# 		gl1000r_reruns = make_build_numbers_from_argument(value)
-
-# if not (gl_reg_builds and gl_reg_reruns and gl1000r_builds and gl1000r_reruns):
-# 	print('Supplying demo values for the report generator...')
-# 	gl_reg_builds = range(268, 294)
-# 	gl_reg_reruns = range(125, 146)
-# 	gl1000r_builds = range(108, 126)
-# 	gl1000r_reruns = range(1, 24)
 
 reporting_config = JobReportingConfig.gl_regression_config() 
 gl_regression_results = compose_rerun_regression_results(reporting_config)
