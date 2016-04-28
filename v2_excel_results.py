@@ -397,24 +397,35 @@ def compose_single_job_regression_results(job_config, app_title):
 	failing_count = 0
 	failure_links = []
 
+	tests = []
+
 	for build_number in construct_build_number_range(job_config):
 		new_results = construct_test_results_for_build(job_config, build_number)
 		if new_results:
 			for case in new_results['test_cases']:
 				case_name_tokens = re.compile(job_config.test_name_delimiter).split(case['name'])
 				case_name = case_name_tokens[1] if len(case_name_tokens) > 1 else case_name_tokens[0]
-				if len(case_name_tokens) <= 1:
-					print('damn, theres a test that outlaws: ' + str(case_name_tokens))
-				if case_name not in case_names:
-					case_names.append(case_name)
-					#status_count += (1 if case['is_passing'] else -1)
-					if case['is_passing']:
-						passing_count +=1
-					else:
-						failing_count += 1
-					if case['failure_url']:
-						failure_links.append({ 'value': case_name, 'url': case['failure_url'] })
-	cases_half_length = (len(case_names) / 2)
+				if case_name in [test['case_name'] for test in tests]:
+					tests = list(filter(lambda test: test['case_name'] != case_name, tests))
+				failure_link = { 'value': case_name, 'url': case['failure_url'] } if case['failure_url'] else None
+				new_test = { 
+					'case_name': case_name, 
+					'is_passing': case['is_passing'], 
+					'failure_link': failure_link
+				}
+				tests.append(new_test)
+				# if case_name not in case_names:
+				# 	case_names.append(case_name)
+				# 	#status_count += (1 if case['is_passing'] else -1)
+				# 	if case['is_passing']:
+				# 		passing_count +=1
+				# 	else:
+				# 		failing_count += 1
+				# 	if case['failure_url']:
+				# 		failure_links.append({ 'value': case_name, 'url': case['failure_url'] })
+	passing_count = len(list(filter(lambda test: test['is_passing'], tests)))
+	failing_count = len(list(filter(lambda test: not test['is_passing'], tests)))
+	failure_links = [test['failure_link'] for test in tests if test['failure_link']] # list(filter(lambda test: test['failure_link'], tests))
 	return {
 		'app_title': app_title,
 		'number_passing': passing_count,
