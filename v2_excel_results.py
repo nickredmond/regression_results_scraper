@@ -6,14 +6,20 @@ from openpyxl.styles import PatternFill, Font, Border, Side
 from openpyxl.formatting.rule import CellIsRule
 import sys, re
 import os.path
+from enum import Enum
 
 def json_response_from_request(base_url, view_name, job_name, build_number, is_test_report=False):
 	view = view_name.replace(' ', '%20')
 	job = job_name.replace(' ', '%20')
-	response = urllib.request.urlopen(base_url + '/view/' + view + '/job/' + job + '/' + str(build_number) + 
+	build_id = 'lastBuild' if int(build_number) == -1 else str(build_number)
+	response = urllib.request.urlopen(base_url + '/view/' + view + '/job/' + job + '/' + build_id + 
 		('/testReport' if is_test_report else '') + '/api/json')
 	str_response = response.read().decode('utf-8')
 	return json.loads(str_response)
+
+def latest_build_id(base_url, view_name, job_name):
+	data = json_response_from_request(base_url, view_name, job_name, -1)
+	return int(data['id'])
 
 def fill_from_hex_value(hex_value):
 	return PatternFill(start_color=hex_value, end_color=hex_value, fill_type='solid')
@@ -49,8 +55,8 @@ class ResultsTable:
 
 	@classmethod
 	def add_status_formatting_to_range(cls, ws, format_range):
-		ws.conditional_formatting.add(format_range, CellIsRule(operator='equal', formula=[1.0], fill=fill_from_hex_value('C6EFCE'), font=Font(color='006100')))
-		ws.conditional_formatting.add(format_range, CellIsRule(operator='between', formula=[0.75, 1.0], fill=fill_from_hex_value('FFEB9C'), font=Font(color='9C6500')))
+		ws.conditional_formatting.add(format_range, CellIsRule(operator='greaterThan', formula=[0.9949999], fill=fill_from_hex_value('C6EFCE'), font=Font(color='006100')))
+		ws.conditional_formatting.add(format_range, CellIsRule(operator='between', formula=[0.75, 0.9949999], fill=fill_from_hex_value('FFEB9C'), font=Font(color='9C6500')))
 		ws.conditional_formatting.add(format_range, CellIsRule(operator='lessThan', formula=[0.75], fill=fill_from_hex_value('FFC7CE'), font=Font(color='9C0006')))
 
 	def add_result(self, app_name, passCount, failCount):
@@ -132,31 +138,47 @@ class FailureList:
 			paint_hyperlink(worksheet, row, FailureList.COLUMN, link)
 			row += 1
 		return row
- 
-def construct_test_results_for_build(job_config, build_number, is_rerun=False):
-	failure_links = []
-	result = None
-	application = None
-	job = job_config.rerun_name if is_rerun else job_config.job_name
 
-	try:
-		data = json_response_from_request(job_config.base_url, job_config.view_name, job, build_number, True)
-		for case in data['suites'][0]['cases']:
-			class_name_parts = case['className'].split('.')
-			if not application and len(class_name_parts) > job_config.application_classname_index:
-				application = class_name_parts[job_config.application_classname_index]
-				if job_config.application_name_delimiter and job_config.application_name_delimiter in application:
-					application = application.split(job_config.application_name_delimiter)[1]
-			if case['status'] in ['FAILED', 'REGRESSION']:
-				class_name = ''
-				for i in range(0, len(class_name_parts) - 1):
-					class_name += class_name_parts[i] + '.'
-				url = (job_config.base_url + '/view/' + job_config.view_name + '/job/' + job + '/' + str(build_number) + '/testReport/junit/' + class_name[:-1] + '/' + 
-					class_name_parts[-1] + '/' + case['name'])
-				failure_links.append({'value': case['name'], 'url': url})
-		number_passing = data['passCount']
-		number_failing = data['failCount']
+class TestResultsParser:
+	@classmethod
+	def handle_test_case(cls, job_config, case, class_name_parts, job, build_number, result):
+		raise Exception('Cannot implement TestResultsParser')
 
+	@classmethod
+	def is_application_parsable(cls, application, class_name_parts, job_config):
+		return (not application and len(class_name_parts) > job_config.application_classname_index)
+
+	@classmethod
+	def parse_failure_url(cls, job_config, case, class_name_parts, job, build_number):
+		url = None
+		if case['status'] in ['FAILED', 'REGRESSION']:
+			class_name = ''
+			for i in range(0, len(class_name_parts) - 1):
+				class_name += class_name_parts[i] + '.'
+			url = (job_config.base_url + '/view/' + job_config.view_name + '/job/' + job + '/' + str(build_number) + '/testReport/junit/' + class_name[:-1] + '/' + 
+				class_name_parts[-1] + '/' + case['name'])
+		return url
+
+class ApplicationNameParser(TestResultsParser):
+	@classmethod
+	def handle_test_case(cls, job_config, case, class_name_parts, job, build_number, result):
+		modified_result = result
+		if 'application' not in modified_result:
+			modified_result['application'] = None
+		if cls.is_application_parsable(modified_result['application'], class_name_parts, job_config): 
+			application = class_name_parts[job_config.application_classname_index]
+			if job_config.application_name_delimiter and job_config.application_name_delimiter in application:
+				application = application.split(job_config.application_name_delimiter)[1]
+			modified_result['application'] = application
+
+		failure_url = cls.parse_failure_url(job_config, case, class_name_parts, job, build_number)
+		if failure_url:
+			modified_result['failure_links'].append({'value': case['name'], 'url': failure_url})
+		return modified_result	
+
+	@classmethod
+	def parse_application_title(cls, job_config, job, build_number, result):
+		modified_result = result
 		data = json_response_from_request(job_config.base_url, job_config.view_name, job, build_number)
 		parameters = None
 		if 'parameters' in data['actions'][0]:
@@ -166,6 +188,8 @@ def construct_test_results_for_build(job_config, build_number, is_rerun=False):
 		else:
 			raise Exception('Could not find build parameters in JSON response')
 
+		application = modified_result['application']
+		del modified_result['application']
 		index = 0
 		while not application:
 			if index >= len(parameters):
@@ -175,32 +199,71 @@ def construct_test_results_for_build(job_config, build_number, is_rerun=False):
 					application = parameters[index]['value']
 			index += 1
 
-		title = job_config.app_title_mappings[application] if application in job_config.app_title_mappings else 'Unknown Application'
-		result = {
-			'app_title': title,
-			'number_passing': number_passing,
-			'number_failing': number_failing,
-			'failure_links': failure_links
-		}
+		modified_result['app_title'] = job_config.app_title_mappings[application] if application in job_config.app_title_mappings else 'Unknown Application'	
+		return modified_result
+
+class TestCaseNamesParser(TestResultsParser):
+	@classmethod
+	def handle_test_case(cls, job_config, case, class_name_parts, job, build_number, result):
+		modified_result = result
+		if 'test_cases' not in modified_result:
+			modified_result['test_cases'] = []
+		is_passing = (case['status'] not in ['FAILED', 'REGRESSION'])
+
+		next_case = { 'name': case['name'], 'is_passing': is_passing, 'failure_url': None }
+		failure_url = cls.parse_failure_url(job_config, case, class_name_parts, job, build_number)
+		if failure_url:
+			next_case['failure_url'] = failure_url
+		modified_result['test_cases'].append(next_case)
+		return modified_result
+
+def construct_test_results_for_build(job_config, build_number, is_rerun=False):
+	result = { 'failure_links': [] }
+	application = None
+	job = job_config.job(is_rerun)
+
+	try:
+		data = json_response_from_request(job_config.base_url, job_config.view_name, job, build_number, True)
+		for case in data['suites'][0]['cases']:
+			class_name_parts = case['className'].split('.')
+			for parser in job_config.results_parsers:
+				result = parser.handle_test_case(job_config, case, class_name_parts, job, build_number, result)
+			
+		result['number_passing'] = data['passCount']
+		result['number_failing'] = data['failCount']
+
+		for parser in job_config.results_parsers:
+			if callable(getattr(parser, 'parse_application_title', None)):
+				result = parser.parse_application_title(job_config, job, build_number, result)
 	except HTTPError:
 		print('No such build number \'' + str(build_number) + '\' for job \'' + job + '\'; Skipping...')
+		result = None
 
 	return result
 
 class JobReportingConfig:
 	DEFAULT_BASE_URL = 'http://172.31.8.12:8080'
 
-	def __init__(self, view_name, job_name, rerun_name, classname_index, application_delimiter=None, base_url=None):
+	def __init__(self, view_name, job_name, rerun_name, classname_index, application_delimiter=None, test_name_delimiter=None, 
+		base_url=None):
 		self.view_name = view_name
 		self.job_name = job_name
 		self.rerun_name = rerun_name
 		self.application_classname_index = classname_index
 		self.application_name_delimiter = application_delimiter
 		self.app_title_mappings = {}
+		self.results_parsers = []
 		self.base_url = base_url if base_url else JobReportingConfig.DEFAULT_BASE_URL
+		self.test_name_delimiter = test_name_delimiter
 
 	def add_app_title_mapping(self, app_key, title):
 		self.app_title_mappings[app_key] = title
+
+	def add_results_parser(self, parser):
+		self.results_parsers.append(parser)
+
+	def job(self, is_rerun):
+		return self.rerun_name if is_rerun else self.job_name
 
 	@classmethod
 	def gl_regression_config(cls):
@@ -231,6 +294,7 @@ class JobReportingConfig:
 		config.add_app_title_mapping('vendors', 'Vendors')
 		config.add_app_title_mapping('write_checks', 'Write Checks')
 		config.add_app_title_mapping('dmscore_6420', 'DMSCORE 6420')
+		config.add_results_parser(ApplicationNameParser)
 		return config
 
 	@classmethod
@@ -260,11 +324,44 @@ class JobReportingConfig:
 		config.add_app_title_mapping('description', 'Change Description')
 		config.add_app_title_mapping('change_account', 'Account')
 		config.add_app_title_mapping('account', 'Account')
+		config.add_results_parser(ApplicationNameParser)
 		return config
 
-def compose_rerun_regression_results(job_config, build_numbers, rerun_numbers):
+	@classmethod
+	def navigation_config(cls, job_name):
+		config = JobReportingConfig('Navigations', job_name, None, 7, test_name_delimiter='_nav[0-9]+_[0-9]+_navigation_')
+		config.add_results_parser(TestCaseNamesParser)
+		return config
+
+	@classmethod
+	def navigation_cs_bo_in_config(cls):
+		return cls.navigation_config('navigation CS BO IN2')
+
+	@classmethod
+	def navigation_gl_py_config(cls):
+		return cls.navigation_config('navigation GL PY')
+
+	@classmethod
+	def navigation_pd_config(cls):
+		return cls.navigation_config('navigation PD')
+
+	@classmethod
+	def navigation_sd_config(cls):
+		return cls.navigation_config('navigation SD')
+
+	@classmethod
+	def navigation_se_dg_dr_ex_pm_config(cls):
+		return cls.navigation_config('navigation SE DG DR EX PM')
+
+build_history_reporting_length = 30
+
+def construct_build_number_range(job_config, is_rerun=False):
+	last_build_number = latest_build_id(job_config.base_url, job_config.view_name, job_config.job(is_rerun))
+	return range(last_build_number - build_history_reporting_length, last_build_number + 1)
+
+def compose_rerun_regression_results(job_config):
 	build_results = []
-	for number in build_numbers:
+	for number in construct_build_number_range(job_config):
 		next_result = construct_test_results_for_build(job_config, number)
 		if next_result:
 			if next_result['app_title'] in [result['app_title'] for result in build_results]:
@@ -272,7 +369,7 @@ def compose_rerun_regression_results(job_config, build_numbers, rerun_numbers):
 			build_results.append(next_result)
 
 	rerun_results = []
-	for number in rerun_numbers:
+	for number in construct_build_number_range(job_config, True):
 		next_result = construct_test_results_for_build(job_config, number, True)
 		if next_result:
 			if next_result['app_title'] in [result['app_title'] for result in rerun_results]:
@@ -291,6 +388,40 @@ def compose_rerun_regression_results(job_config, build_numbers, rerun_numbers):
 		})
 	return aggregated_results
 
+def compose_single_job_regression_results(job_config, app_title):
+	data = json_response_from_request(job_config.base_url, job_config.view_name, job_config.job_name, -1)
+	last_build_number = int(data['id'])
+	case_names = []
+	status_count = 0
+	passing_count = 0
+	failing_count = 0
+	failure_links = []
+
+	for build_number in construct_build_number_range(job_config):
+		new_results = construct_test_results_for_build(job_config, build_number)
+		if new_results:
+			for case in new_results['test_cases']:
+				case_name_tokens = re.compile(job_config.test_name_delimiter).split(case['name'])
+				case_name = case_name_tokens[1] if len(case_name_tokens) > 1 else case_name_tokens[0]
+				if len(case_name_tokens) <= 1:
+					print('damn, theres a test that outlaws: ' + str(case_name_tokens))
+				if case_name not in case_names:
+					case_names.append(case_name)
+					#status_count += (1 if case['is_passing'] else -1)
+					if case['is_passing']:
+						passing_count +=1
+					else:
+						failing_count += 1
+					if case['failure_url']:
+						failure_links.append({ 'value': case_name, 'url': case['failure_url'] })
+	cases_half_length = (len(case_names) / 2)
+	return {
+		'app_title': app_title,
+		'number_passing': passing_count,
+		'number_failing': failing_count,
+		'failure_links': failure_links
+	}
+
 def write_results_to_worksheet(workbook, sheet_name, test_results, is_new_sheet=False):
 	worksheet = workbook.create_sheet() if is_new_sheet else workbook.active
 	worksheet.title = sheet_name
@@ -304,51 +435,68 @@ def write_results_to_worksheet(workbook, sheet_name, test_results, is_new_sheet=
 		failures = FailureList(result['app_title'], result['failure_links'])
 		next_row = failures.write_results(worksheet, next_row + 1)
 
-def make_build_numbers_from_argument(value):
-	numbers = value.split('-')
-	builds = []
-	if len(numbers) == 2:
-		builds = range(int(numbers[0]), int(numbers[1]) + 1)
-	else:
-		numbers = value.split(',')
-		for number in numbers:
-			builds.append(number)
-	return builds
+# def make_build_numbers_from_argument(value):
+# 	numbers = value.split('-')
+# 	builds = []
+# 	if len(numbers) == 2:
+# 		builds = range(int(numbers[0]), int(numbers[1]) + 1)
+# 	else:
+# 		numbers = value.split(',')
+# 		for number in numbers:
+# 			builds.append(number)
+# 	return builds
 
-gl_reg_builds = None
-gl_reg_reruns = None
-gl1000r_builds = None
-gl1000r_reruns = None
+# gl_reg_builds = None
+# gl_reg_reruns = None
+# gl1000r_builds = None
+# gl1000r_reruns = None
 
-for arg in sys.argv[1:]:
-	if '=' not in arg:
-		raise Exception('Must pass key-value arguments, e.g. view=\'GL Regression\'')
-	key, value = arg.split('=')
-	if key == 'gl_reg_builds':
-		gl_reg_builds = make_build_numbers_from_argument(value)
-	elif key == 'gl_reg_reruns':
-		gl_reg_reruns = make_build_numbers_from_argument(value)
-	elif key == 'gl1000r_builds':
-		gl1000r_builds = make_build_numbers_from_argument(value)
-	elif key == 'gl1000r_reruns':
-		gl1000r_reruns = make_build_numbers_from_argument(value)
+# for arg in sys.argv[1:]:
+# 	if '=' not in arg:
+# 		raise Exception('Must pass key-value arguments, e.g. view=\'GL Regression\'')
+# 	key, value = arg.split('=')
+# 	if key == 'gl_reg_builds':
+# 		gl_reg_builds = make_build_numbers_from_argument(value)
+# 	elif key == 'gl_reg_reruns':
+# 		gl_reg_reruns = make_build_numbers_from_argument(value)
+# 	elif key == 'gl1000r_builds':
+# 		gl1000r_builds = make_build_numbers_from_argument(value)
+# 	elif key == 'gl1000r_reruns':
+# 		gl1000r_reruns = make_build_numbers_from_argument(value)
 
-if not (gl_reg_builds and gl_reg_reruns and gl1000r_builds and gl1000r_reruns):
-	print('Supplying demo values for the report generator...')
-	gl_reg_builds = range(268, 294)
-	gl_reg_reruns = range(125, 146)
-	gl1000r_builds = range(108, 126)
-	gl1000r_reruns = range(1, 24)
+# if not (gl_reg_builds and gl_reg_reruns and gl1000r_builds and gl1000r_reruns):
+# 	print('Supplying demo values for the report generator...')
+# 	gl_reg_builds = range(268, 294)
+# 	gl_reg_reruns = range(125, 146)
+# 	gl1000r_builds = range(108, 126)
+# 	gl1000r_reruns = range(1, 24)
 
 reporting_config = JobReportingConfig.gl_regression_config() 
-gl_regression_results = compose_rerun_regression_results(reporting_config, gl_reg_builds, gl_reg_reruns)
+gl_regression_results = compose_rerun_regression_results(reporting_config)
 reporting_config = JobReportingConfig.gl1000r_regression_config()
-gl1000r_results = compose_rerun_regression_results(reporting_config, gl1000r_builds, gl1000r_reruns)
+gl1000r_results = compose_rerun_regression_results(reporting_config)
 
 wb = Workbook()
 
 write_results_to_worksheet(wb, 'GL Regression', gl_regression_results)
 write_results_to_worksheet(wb, 'GL1000R', gl1000r_results, True)
+
+# NEW
+nav_results = []
+
+nav_infos = [
+	{ 'config': JobReportingConfig.navigation_cs_bo_in_config(), 'app_title': 'CS/BO/IN' },
+	{ 'config': JobReportingConfig.navigation_gl_py_config(), 'app_title': 'GL/PY' },
+	{ 'config': JobReportingConfig.navigation_pd_config(), 'app_title': 'PD' },
+	{ 'config': JobReportingConfig.navigation_sd_config(), 'app_title': 'SD' },
+	{ 'config': JobReportingConfig.navigation_se_dg_dr_ex_pm_config(), 'app_title': 'SE/DG/DR/EX/PM' }
+]
+for info in nav_infos:
+	results = compose_single_job_regression_results(info['config'], info['app_title'])
+	nav_results.append(results)
+
+write_results_to_worksheet(wb, 'Navigation', nav_results, True)
+# ENDNEW
 
 default_filename = 'regression_run'
 filename = input('Enger filename (\'' + default_filename + '\'): ') or default_filename
