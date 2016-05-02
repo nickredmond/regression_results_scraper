@@ -1,26 +1,19 @@
-import json
-import urllib.request
-from urllib.error import HTTPError
 from openpyxl import Workbook
-from openpyxl.styles import PatternFill, Font, Border, Side
-from openpyxl.formatting.rule import CellIsRule
-import sys, re
-import os.path
-from enum import Enum
 
 from build_results import BuildResultsService
+from config import JobReportingConfig
+from excel_reporting import WorkbookManager
 
-reporting_config = JobReportingConfig.gl_regression_config() 
-gl_regression_results = compose_rerun_regression_results(reporting_config)
-reporting_config = JobReportingConfig.gl1000r_regression_config()
-gl1000r_results = compose_rerun_regression_results(reporting_config)
+excel_manager = WorkbookManager(Workbook())
 
-wb = Workbook()
+gl_regression_service = BuildResultsService(JobReportingConfig.gl_regression_config())
+gl_regression_results = gl_regression_service.compose_rerun_regression_results()
+excel_manager.write_results_to_worksheet(gl_regression_results, 'GL Regression')
 
-write_results_to_worksheet(wb, 'GL Regression', gl_regression_results)
-write_results_to_worksheet(wb, 'GL1000R', gl1000r_results, True)
+gl1000r_service = BuildResultsService(JobReportingConfig.gl1000r_regression_config())
+gl1000r_results = gl1000r_service.compose_rerun_regression_results()
+excel_manager.write_results_to_worksheet(gl1000r_results, 'GL1000R', True)
 
-# NEW
 nav_results = []
 
 nav_infos = [
@@ -31,9 +24,11 @@ nav_infos = [
 	{ 'config': JobReportingConfig.navigation_se_dg_dr_ex_pm_config(), 'app_title': 'SE/DG/DR/EX/PM' }
 ]
 for info in nav_infos:
-	results = compose_single_job_regression_results(info['config'], info['app_title'])
+	nav_service = BuildResultsService(info['config'])
+	results = nav_service.compose_single_job_regression_results(info['app_title'])
 	nav_results.append(results)
+excel_manager.write_results_to_worksheet(nav_results, 'Navigation', True)
 
-write_results_to_worksheet(wb, 'Navigation', nav_results, True)
-# ENDNEW
+excel_manager.save_workbook()
+
 

@@ -1,7 +1,9 @@
+from build_results import ApplicationNameParser, TestCaseNamesParser
+
 class JobReportingConfig:
 	DEFAULT_BASE_URL = 'http://172.31.8.12:8080'
 
-	def __init__(self, view_name, job_name, rerun_name, classname_index, filepath_range, application_delimiter=None, 
+	def __init__(self, view_name, job_name, rerun_name, classname_index, test_filename_index=None, application_delimiter=None, 
 		test_name_delimiter=None, base_url=None):
 		self.view_name = view_name
 		self.job_name = job_name
@@ -12,8 +14,7 @@ class JobReportingConfig:
 		self.results_parsers = []
 		self.base_url = base_url if base_url else JobReportingConfig.DEFAULT_BASE_URL
 		self.test_name_delimiter = test_name_delimiter
-		self.filepath_start_index = filepath_range[0]
-		self.filepath_end_index = filepath_range[1]
+		self.test_filename_index = test_filename_index
 
 	def add_app_title_mapping(self, app_key, title):
 		self.app_title_mappings[app_key] = title
@@ -26,7 +27,7 @@ class JobReportingConfig:
 
 	@classmethod
 	def gl_regression_config(cls):
-		config = JobReportingConfig('GL Regression', 'GL Regression Build', 'GL Regression Test Fail', 7, (3, 7))
+		config = JobReportingConfig('GL Regression', 'GL Regression Build', 'GL Regression Test Fail', 7, 8)
 		config.add_app_title_mapping('accounts_receivable', 'Accounts Receivable')
 		config.add_app_title_mapping('accounting_tools', 'Accounting Tools')
 		config.add_app_title_mapping('application_environment', 'Application Environment')
@@ -59,7 +60,7 @@ class JobReportingConfig:
 	@classmethod
 	def gl1000r_regression_config(cls):
 		config = JobReportingConfig('GL Regression', 'GL1000R_REGRESSION_TEST', 'GL1000R Rerun Test Failures', 
-			8, (3, 8), 'GL1000_')
+			8, 8, 'GL1000_')
 		config.add_app_title_mapping('miscellaneous', 'Miscellaneous')
 		config.add_app_title_mapping('line_field', 'Line Number')
 		config.add_app_title_mapping('line_number', 'Line Number')
@@ -89,7 +90,7 @@ class JobReportingConfig:
 
 	@classmethod
 	def navigation_config(cls, job_name):
-		config = JobReportingConfig('Navigations', job_name, None, 7, (3, 6), test_name_delimiter='_nav[0-9]+_[0-9]+_navigation_')
+		config = JobReportingConfig('Navigations', job_name, None, 7, test_name_delimiter='_nav[0-9]+_[0-9]+_navigation_')
 		config.add_results_parser(TestCaseNamesParser)
 		return config
 
