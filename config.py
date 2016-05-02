@@ -1,23 +1,73 @@
+import xml.etree.ElementTree as ET
+import copy
+
 from build_results import ApplicationNameParser, TestCaseNamesParser
 
-class JobReportingConfig:
-	DEFAULT_BASE_URL = 'http://172.31.8.12:8080'
+class JobReportingConfigManager:
+	DEFAULT_CONFIG_FILENAME = 'reporting_config.xml'
 
-	def __init__(self, view_name, job_name, rerun_name, classname_index, test_filename_index=None, application_delimiter=None, 
-		test_name_delimiter=None, base_url=None):
-		self.view_name = view_name
+	def __init__(self, config_filename=None):
+		self.config_filename = config_filename or JobReportingConfigManager.DEFAULT_CONFIG_FILENAME
+		self.job_group_configs = []
+		self.rerun_job_configs = []
+
+	def get_results_parser(self, xml_node):
+		parser_name = xml_node.find('results_parser').text
+		parser_module = __import__('build_results')
+		return getattr(parser_module, parser_name)
+
+	def read_config_from_file(self):
+		tree = ET.parse(self.config_filename)
+		root = tree.getroot()
+		base_url = root.find('base_url').text
+
+		for job_config in root.findall('job_config'):
+			view_name = job_config.find('view_name').text
+			job_name = job_config.find('job_name').text
+			classname_index = int(job_config.find('classname_index').text)
+			test_filename_index = int(job_config.find('test_filename_index').text)
+			sheet_title = job_config.find('sheet_title').text
+			rerun_name = job_config.find('rerun_name')
+			if rerun_name is not None:
+				rerun_name = rerun_name.text
+			application_delimiter = job_config.find('application_delimiter')
+			if application_delimiter is not None:
+				application_delimiter = application_delimiter.text
+			config_obj = RerunJobReportingConfig(view_name, sheet_title, job_name, rerun_name, classname_index, test_filename_index, 
+				application_delimiter)
+			for mapping in job_config.find('app_title_mappings').findall('mapping'):
+				config_obj.add_app_title_mapping(mapping.get('app_key'), mapping.get('title'))
+			config_obj.base_url = base_url
+			config_obj.add_results_parser(self.get_results_parser(job_config))
+			self.rerun_job_configs.append(config_obj)
+
+		for job_group in root.findall('job_config_group'):
+			view_name = job_group.get('view_name')
+			classname_index = int(job_group.find('classname_index').text)
+			test_name_delimiter = job_group.find('test_name_delimiter').text
+			sheet_title = job_group.find('sheet_title').text
+			job_group_config = JobGroupReportingConfig(view_name, sheet_title, classname_index, test_name_delimiter)
+
+			for job_config in job_group.findall('job_config'):
+				app_title = job_config.find('app_title').text
+				job_name = job_config.find('job_name').text
+				job_group_config.add_job_config(app_title, job_name)
+			job_group_config.base_url = base_url
+			job_group_config.add_results_parser(self.get_results_parser(job_group))
+			self.job_group_configs.append(job_group_config)
+
+class JobApplicationConfig:
+	def __init__(self, app_title, job_name):
+		self.app_title = app_title
 		self.job_name = job_name
-		self.rerun_name = rerun_name
-		self.application_classname_index = classname_index
-		self.application_name_delimiter = application_delimiter
-		self.app_title_mappings = {}
-		self.results_parsers = []
-		self.base_url = base_url if base_url else JobReportingConfig.DEFAULT_BASE_URL
-		self.test_name_delimiter = test_name_delimiter
-		self.test_filename_index = test_filename_index
 
-	def add_app_title_mapping(self, app_key, title):
-		self.app_title_mappings[app_key] = title
+class JobReportingConfig:
+	def __init__(self, view_name, sheet_title, classname_index):
+		self.view_name = view_name
+		self.sheet_title = sheet_title
+		self.application_classname_index = classname_index
+		self.base_url = None
+		self.results_parsers = []
 
 	def add_results_parser(self, parser):
 		self.results_parsers.append(parser)
@@ -25,91 +75,29 @@ class JobReportingConfig:
 	def job(self, is_rerun):
 		return self.rerun_name if is_rerun else self.job_name
 
-	@classmethod
-	def gl_regression_config(cls):
-		config = JobReportingConfig('GL Regression', 'GL Regression Build', 'GL Regression Test Fail', 7, 8)
-		config.add_app_title_mapping('accounts_receivable', 'Accounts Receivable')
-		config.add_app_title_mapping('accounting_tools', 'Accounting Tools')
-		config.add_app_title_mapping('application_environment', 'Application Environment')
-		config.add_app_title_mapping('audit_reporting', 'Audit Reporting')
-		config.add_app_title_mapping('bank_deposits', 'Bank Deposits')
-		config.add_app_title_mapping('cashier', 'Cashier')
-		config.add_app_title_mapping('charge_customers', 'Charge Customers')
-		config.add_app_title_mapping('chart_of_accounts', 'Chart of Accounts')
-		config.add_app_title_mapping('enter_transactions', 'Enter Transactions')
-		config.add_app_title_mapping('financial_analysis', 'Financial Analysis')
-		config.add_app_title_mapping('gl_customer_contact', 'GL Customer Contact')
-		config.add_app_title_mapping('gl_inventory', 'GL Inventory')
-		config.add_app_title_mapping('miscellaneous', 'Miscellaneous')
-		config.add_app_title_mapping('glptrns', 'GLPTRNS')
-		config.add_app_title_mapping('hand_written_checks', 'Hand Written Checks')
-		config.add_app_title_mapping('inquiry', 'Inquiry')
-		config.add_app_title_mapping('managed_accounts', 'Managed Accounts')
-		config.add_app_title_mapping('open_payables', 'Open Payables')
-		config.add_app_title_mapping('purchasing', 'Purchasing')
-		config.add_app_title_mapping('receipt_cash', 'Receipt Cash')
-		config.add_app_title_mapping('reconcile_bank_accounts', 'Reconcile Bank Accounts')
-		config.add_app_title_mapping('report_to_outside_parties', 'Report to Outside Parties')
-		config.add_app_title_mapping('transaction_analysis', 'Transaction Analysis')
-		config.add_app_title_mapping('vendors', 'Vendors')
-		config.add_app_title_mapping('write_checks', 'Write Checks')
-		config.add_app_title_mapping('dmscore_6420', 'DMSCORE 6420')
-		config.add_results_parser(ApplicationNameParser)
+class JobGroupReportingConfig(JobReportingConfig):
+	def __init__(self, view_name, sheet_title, classname_index, test_name_delimiter):
+		super(JobGroupReportingConfig, self).__init__(view_name, sheet_title, classname_index)
+		self.test_name_delimiter = test_name_delimiter
+		self.job_application_mappings = {}
+
+	def add_job_config(self, app_title, job_name):
+		self.job_application_mappings[app_title] = job_name
+
+	def config_for(self, app_title):
+		job_name = self.job_application_mappings[app_title]
+		config = copy.deepcopy(self)
+		config.job_name = job_name
 		return config
 
-	@classmethod
-	def gl1000r_regression_config(cls):
-		config = JobReportingConfig('GL Regression', 'GL1000R_REGRESSION_TEST', 'GL1000R Rerun Test Failures', 
-			8, 8, 'GL1000_')
-		config.add_app_title_mapping('miscellaneous', 'Miscellaneous')
-		config.add_app_title_mapping('line_field', 'Line Number')
-		config.add_app_title_mapping('line_number', 'Line Number')
-		config.add_app_title_mapping('amount_field', 'Amount')
-		config.add_app_title_mapping('amount', 'Amount')
-		config.add_app_title_mapping('change_control_number', 'Control Number')
-		config.add_app_title_mapping('control_number', 'Control Number')
-		config.add_app_title_mapping('change_document_number', 'Document Number')
-		config.add_app_title_mapping('document_number', 'Document Number')
-		config.add_app_title_mapping('cost_field', 'Cost')
-		config.add_app_title_mapping('cost', 'Cost')
-		config.add_app_title_mapping('change_journal', 'Journal')
-		config.add_app_title_mapping('journal', 'Journal')
-		config.add_app_title_mapping('date_field', 'Date')
-		config.add_app_title_mapping('date', 'Date')
-		config.add_app_title_mapping('test_transactions', 'Transactions')
-		config.add_app_title_mapping('transactions', 'Transactions')
-		config.add_app_title_mapping('reference_number', 'Reference Number')
-		config.add_app_title_mapping('reference', 'Reference Number')
-		config.add_app_title_mapping('override_control', 'Override Control')
-		config.add_app_title_mapping('change_description', 'Change Description')
-		config.add_app_title_mapping('description', 'Change Description')
-		config.add_app_title_mapping('change_account', 'Account')
-		config.add_app_title_mapping('account', 'Account')
-		config.add_results_parser(ApplicationNameParser)
-		return config
+class RerunJobReportingConfig(JobReportingConfig):
+	def __init__(self, view_name, sheet_title, job_name, rerun_name, classname_index, test_filename_index, application_delimiter=None):
+		super(RerunJobReportingConfig, self).__init__(view_name, sheet_title, classname_index)
+		self.job_name = job_name
+		self.rerun_name = rerun_name
+		self.application_name_delimiter = application_delimiter
+		self.app_title_mappings = {}
+		self.test_filename_index = test_filename_index
 
-	@classmethod
-	def navigation_config(cls, job_name):
-		config = JobReportingConfig('Navigations', job_name, None, 7, test_name_delimiter='_nav[0-9]+_[0-9]+_navigation_')
-		config.add_results_parser(TestCaseNamesParser)
-		return config
-
-	@classmethod
-	def navigation_cs_bo_in_config(cls):
-		return cls.navigation_config('navigation CS BO IN2')
-
-	@classmethod
-	def navigation_gl_py_config(cls):
-		return cls.navigation_config('navigation GL PY')
-
-	@classmethod
-	def navigation_pd_config(cls):
-		return cls.navigation_config('navigation PD')
-
-	@classmethod
-	def navigation_sd_config(cls):
-		return cls.navigation_config('navigation SD')
-
-	@classmethod
-	def navigation_se_dg_dr_ex_pm_config(cls):
-		return cls.navigation_config('navigation SE DG DR EX PM')
+	def add_app_title_mapping(self, app_key, title):
+		self.app_title_mappings[app_key] = title

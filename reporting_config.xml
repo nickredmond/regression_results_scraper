@@ -1,0 +1,102 @@
+<reporting_config>
+	<base_url>http://172.31.8.12:8080</base_url>
+	<job_config>
+		<view_name>GL Regression</view_name>
+		<job_name>GL Regression Build</job_name>
+		<rerun_name>GL Regression Test Fail</rerun_name>
+		<classname_index>7</classname_index>
+		<test_filename_index>8</test_filename_index>
+		<sheet_title>GL Regression</sheet_title>
+		<results_parser>ApplicationNameParser</results_parser>
+		<app_title_mappings>
+			<mapping app_key="accounts_receivable" title="Accounts Receivable" />
+			<mapping app_key="accounting_tools" title="Accounting Tools" />
+			<mapping app_key="application_environment" title="Application Environment" />
+			<mapping app_key="audit_reporting" title="Audit Reporting" />
+			<mapping app_key="bank_deposits" title="Bank Deposits" />
+			<mapping app_key="cashier" title="Cashier" />
+			<mapping app_key="charge_customers" title="Charge Customers" />
+			<mapping app_key="chart_of_accounts" title="Chart of Accounts" />
+			<mapping app_key="enter_transactions" title="Enter Transactions" />
+			<mapping app_key="financial_analysis" title="Financial Analysis" />
+			<mapping app_key="gl_customer_contact" title="GL Customer Contact" />
+			<mapping app_key="gl_inventory" title="GL Inventory" />
+			<mapping app_key="miscellaneous" title="Miscellaneous" />
+			<mapping app_key="glptrns" title="GLPTRNS" />
+			<mapping app_key="hand_written_checks" title="Hand Written Checks" />
+			<mapping app_key="inquiry" title="Inquiry" />
+			<mapping app_key="managed_accounts" title="Managed Accounts" />
+			<mapping app_key="open_payables" title="Open Payables" />
+			<mapping app_key="purchasing" title="Purchasing" />
+			<mapping app_key="receipt_cash" title="Receipt Cash" />
+			<mapping app_key="reconcile_bank_accounts" title="Reconcile Bank Accounts" />
+			<mapping app_key="report_to_outside_parties" title="Report to Outside Parties" />
+			<mapping app_key="transaction_analysis" title="Transaction Analysis" />
+			<mapping app_key="vendors" title="Vendors" />
+			<mapping app_key="write_checks" title="Write Checks" />
+			<mapping app_key="dmscore_6420" title="DMSCORE 6420" />
+		</app_title_mappings>
+	</job_config>
+	<job_config>
+		<view_name>GL Regression</view_name>
+		<job_name>GL1000R_REGRESSION_TEST</job_name>
+		<rerun_name>GL1000R Rerun Test Failures</rerun_name>
+		<classname_index>8</classname_index>
+		<test_filename_index>8</test_filename_index>
+		<application_delimiter>GL1000_</application_delimiter>
+		<sheet_title>GL1000R</sheet_title>
+		<results_parser>ApplicationNameParser</results_parser>
+		<app_title_mappings>
+			<mapping app_key="miscellaneous" title="Miscellaneous" />
+			<mapping app_key="line_field" title="Line Number" />
+			<mapping app_key="line_number" title="Line Number" />
+			<mapping app_key="amount_field" title="Amount" />
+			<mapping app_key="amount" title="Amount" />
+			<mapping app_key="change_control_number" title="Control Number" />
+			<mapping app_key="control_number" title="Control Number" />
+			<mapping app_key="change_document_number" title="Document Number" />
+			<mapping app_key="document_number" title="Document Number" />
+			<mapping app_key="cost_field" title="Cost" />
+			<mapping app_key="cost" title="Cost" />
+			<mapping app_key="change_journal" title="Journal" />
+			<mapping app_key="journal" title="Journal" />
+			<mapping app_key="date_field" title="Date" />
+			<mapping app_key="date" title="Date" />
+			<mapping app_key="test_transactions" title="Transactions" />
+			<mapping app_key="transactions" title="Transactions" />
+			<mapping app_key="reference_number" title="Reference Number" />
+			<mapping app_key="reference" title="Reference Number" />
+			<mapping app_key="override_control" title="Override Control" />
+			<mapping app_key="change_description" title="Change Description" />
+			<mapping app_key="description" title="Change Description" />
+			<mapping app_key="change_account" title="Account" />
+			<mapping app_key="account" title="Account" />
+		</app_title_mappings>
+	</job_config>
+	<job_config_group view_name="Navigations">
+		<classname_index>8</classname_index>
+		<test_name_delimiter>_nav[0-9]+_[0-9]+_navigation_</test_name_delimiter>
+		<results_parser>TestCaseNamesParser</results_parser>
+		<sheet_title>Navigation</sheet_title>
+		<job_config>
+			<app_title>CS/BO/IN</app_title>
+			<job_name>navigation CS BO IN2</job_name>
+		</job_config>
+		<job_config>
+			<app_title>GL/PY</app_title>
+			<job_name>navigation GL PY</job_name>
+		</job_config>
+		<job_config>
+			<app_title>PD</app_title>
+			<job_name>navigation PD</job_name>
+		</job_config>
+		<job_config>
+			<app_title>SD</app_title>
+			<job_name>navigation SD</job_name>
+		</job_config>
+		<job_config>
+			<app_title>SE/DG/DR/EX/PM</app_title>
+			<job_name>navigation SE DG DR EX PM</job_name>
+		</job_config>
+	</job_config_group>
+</reporting_config>

@@ -51,7 +51,7 @@ class TestResultsParser:
 
 	@classmethod
 	def is_application_parsable(cls, application, class_name_parts, job_config):
-		return (not application and len(class_name_parts) > job_config.application_classname_index)
+		return (len(class_name_parts) > job_config.application_classname_index)
 
 	@classmethod
 	def parse_failure_url(cls, job_config, case, class_name_parts, job, build_number):
@@ -67,7 +67,7 @@ class TestResultsParser:
 	@classmethod
 	def construct_failure_link_value(cls, job_config, case_name, class_name_parts):
 		link_value = case_name
-		if job_config.test_filename_index and len(class_name_parts) > job_config.test_filename_index:
+		if getattr(job_config, 'test_filename_index', None) and len(class_name_parts) > job_config.test_filename_index:
 			link_value = class_name_parts[job_config.test_filename_index] + '.' + link_value
 		return link_value
 
