@@ -1,0 +1,209 @@
+class JenkinsClient:
+	@classmethod
+	def json_response_from_request(cls, base_url, view_name, job_name, build_number, is_test_report=False):
+		view = view_name.replace(' ', '%20')
+		job = job_name.replace(' ', '%20')
+		build_id = 'lastBuild' if int(build_number) == -1 else str(build_number)
+		response = urllib.request.urlopen(base_url + '/view/' + view + '/job/' + job + '/' + build_id + 
+			('/testReport' if is_test_report else '') + '/api/json')
+		str_response = response.read().decode('utf-8')
+		return json.loads(str_response)
+
+	@classmethod
+	def latest_build_id(cls, base_url, view_name, job_name):
+		data = cls.json_response_from_request(base_url, view_name, job_name, -1)
+		return int(data['id'])
+
+class TestResultsParser:
+	@classmethod
+	def handle_test_case(cls, job_config, case, class_name_parts, job, build_number, result):
+		raise Exception('Cannot implement TestResultsParser')
+
+	@classmethod
+	def is_application_parsable(cls, application, class_name_parts, job_config):
+		return (not application and len(class_name_parts) > job_config.application_classname_index)
+
+	@classmethod
+	def parse_failure_url(cls, job_config, case, class_name_parts, job, build_number):
+		url = None
+		if case['status'] in ['FAILED', 'REGRESSION']:
+			class_name = ''
+			for i in range(0, len(class_name_parts) - 1):
+				class_name += class_name_parts[i] + '.'
+			url = (job_config.base_url + '/view/' + job_config.view_name + '/job/' + job + '/' + str(build_number) + '/testReport/junit/' + class_name[:-1] + '/' + 
+				class_name_parts[-1] + '/' + case['name'])
+		return url
+
+class ApplicationNameParser(TestResultsParser):
+	@classmethod
+	def handle_test_case(cls, job_config, case, class_name_parts, job, build_number, result):
+		modified_result = result
+		if 'application' not in modified_result:
+			modified_result['application'] = None
+		if cls.is_application_parsable(modified_result['application'], class_name_parts, job_config): 
+			application = class_name_parts[job_config.application_classname_index]
+			if job_config.application_name_delimiter and job_config.application_name_delimiter in application:
+				application = application.split(job_config.application_name_delimiter)[1]
+			modified_result['application'] = application
+
+		failure_url = cls.parse_failure_url(job_config, case, class_name_parts, job, build_number)
+		if failure_url:
+			modified_result['failure_links'].append({'value': case['name'], 'url': failure_url})
+		return modified_result	
+
+	@classmethod
+	def parse_application_title(cls, job_config, job, build_number, result):
+		modified_result = result
+		data = JenkinsClient.json_response_from_request(job_config.base_url, job_config.view_name, job, build_number)
+		parameters = None
+		if 'parameters' in data['actions'][0]:
+			parameters = data['actions'][0]['parameters']
+		elif 'parameters' in data['actions'][1]:
+			parameters = data['actions'][1]['parameters']
+		else:
+			raise Exception('Could not find build parameters in JSON response')
+
+		application = modified_result['application']
+		del modified_result['application']
+		index = 0
+		while not application:
+			if index >= len(parameters):
+				application = 'N/A'
+			else:
+				if parameters[index]['name'] == 'APPLICATION':
+					application = parameters[index]['value']
+			index += 1
+
+		modified_result['app_title'] = job_config.app_title_mappings[application] if application in job_config.app_title_mappings else 'Unknown Application'	
+		return modified_result
+
+class TestCaseNamesParser(TestResultsParser):
+	@classmethod
+	def handle_test_case(cls, job_config, case, class_name_parts, job, build_number, result):
+		modified_result = result
+		if 'test_cases' not in modified_result:
+			modified_result['test_cases'] = []
+		is_passing = (case['status'] not in ['FAILED', 'REGRESSION'])
+
+		next_case = { 'name': case['name'], 'is_passing': is_passing, 'failure_url': None }
+		failure_url = cls.parse_failure_url(job_config, case, class_name_parts, job, build_number)
+		if failure_url:
+			next_case['failure_url'] = failure_url
+		modified_result['test_cases'].append(next_case)
+		return modified_result
+
+def construct_test_results_for_build(job_config, build_number, is_rerun=False):
+	result = { 'failure_links': [] }
+	application = None
+	job = job_config.job(is_rerun)
+	filepath = None
+
+	try:
+		data = JenkinsClient.json_response_from_request(job_config.base_url, job_config.view_name, job, build_number, True)
+		for case in data['suites'][0]['cases']:
+			class_name_parts = case['className'].split('.')
+			if not filepath:
+				filepath_tokens = class_name_parts[job_config.filepath_start_index:job_config.filepath_end_index+1]
+				filepath = "/".join(filepath_tokens)
+			for parser in job_config.results_parsers:
+				result = parser.handle_test_case(job_config, case, class_name_parts, job, build_number, result)
+			
+		result['number_passing'] = data['passCount']
+		result['number_failing'] = data['failCount']
+		result['filepath'] = filepath
+
+		for parser in job_config.results_parsers:
+			if callable(getattr(parser, 'parse_application_title', None)):
+				result = parser.parse_application_title(job_config, job, build_number, result)
+	except HTTPError:
+		print('No such build number \'' + str(build_number) + '\' for job \'' + job + '\'; Skipping...')
+		result = None
+
+	return result
+
+build_history_reporting_length = 30
+
+class BuildResultsService:
+	DEFAULT_CONFIG_LOCATION = "./"
+	def __init__(self, job_config, workbook, sheet_name, app_title):
+		self.job_config = job_config
+		self.sheet_name = sheet_name
+		self.app_title = app_title
+		self.workbook = workbook
+
+	def construct_build_number_range(self, is_rerun=False):
+		last_build_number = JenkinsClient.latest_build_id(self.job_config.base_url, self.job_config.view_name, 
+			self.job_config.job(is_rerun))
+		return range(last_build_number - build_history_reporting_length, last_build_number + 1)
+
+	def compose_rerun_regression_results(self):
+		build_results = []
+		for number in self.construct_build_number_range(self.job_config):
+			next_result = construct_test_results_for_build(self.job_config, number)
+			if next_result:
+				if next_result['app_title'] in [result['app_title'] for result in build_results]:
+					build_results = list(filter(lambda result: result['app_title'] != next_result['app_title'], build_results))
+				build_results.append(next_result)
+
+		rerun_results = []
+		for number in construct_build_number_range(self.job_config, True):
+			next_result = construct_test_results_for_build(self.job_config, number, True)
+			if next_result:
+				if next_result['app_title'] in [result['app_title'] for result in rerun_results]:
+					rerun_results = list(filter(lambda result: result['app_title'] != next_result['app_title'], rerun_results))
+				rerun_results.append(next_result)
+
+		aggregated_results = []
+		for result in build_results:
+			filtered = list(filter(lambda rerun_result: rerun_result['app_title'] == result['app_title'], rerun_results))
+			second = filtered[0] if len(filtered) > 0 else result
+			aggregated_results.append({
+				'app_title': result['app_title'],
+				'filepath': result['filepath'],
+				'number_passing': (result['number_passing'] + result['number_failing']) - second['number_failing'],
+				'number_failing': second['number_failing'],
+				'failure_links': second['failure_links']
+			})
+		return aggregated_results
+
+	def compose_single_job_regression_results(self):
+		data = JenkinsClient.json_response_from_request(self.job_config.base_url, self.job_config.view_name, 
+			self.job_config.job_name, -1)
+		last_build_number = int(data['id'])
+		case_names = []
+		status_count = 0
+		passing_count = 0
+		failing_count = 0
+		failure_links = []
+
+		tests = []
+		filepath = None
+
+		for build_number in BuildResultsService.construct_build_number_range(self.job_config):
+			new_results = construct_test_results_for_build(self.job_config, build_number)
+			if not filepath:
+				filepath = new_results['filepath']
+			if new_results:
+				for case in new_results['test_cases']:
+					case_name_tokens = re.compile(self.job_config.test_name_delimiter).split(case['name'])
+					case_name = case_name_tokens[1] if len(case_name_tokens) > 1 else case_name_tokens[0]
+					if case_name in [test['case_name'] for test in tests]:
+						tests = list(filter(lambda test: test['case_name'] != case_name, tests))
+					failure_link = { 'value': case_name, 'url': case['failure_url'] } if case['failure_url'] else None
+					new_test = { 
+						'case_name': case_name, 
+						'is_passing': case['is_passing'], 
+						'failure_link': failure_link
+					}
+					tests.append(new_test)
+
+		passing_count = len(list(filter(lambda test: test['is_passing'], tests)))
+		failing_count = len(list(filter(lambda test: not test['is_passing'], tests)))
+		failure_links = [test['failure_link'] for test in tests if test['failure_link']]
+		return {
+			'app_title': self.app_title,
+			'filepath': filepath,
+			'number_passing': passing_count,
+			'number_failing': failing_count,
+			'failure_links': failure_links
+		}
