@@ -56,6 +56,30 @@ class JobReportingConfigManager:
 			job_group_config.add_results_parser(self.get_results_parser(job_group))
 			self.job_group_configs.append(job_group_config)
 
+		self.percentage_formatting = {}
+		formatting_node = root.find('percentage_formatting')
+		for frmt in formatting_node.findall('format'):
+			next_format = {}
+			next_format['font_color'] = frmt.find('font_color').text
+			next_format['fill_color'] = frmt.find('fill_color').text
+			next_format['range'] = self._parse_format_range(frmt)
+			self.percentage_formatting[frmt.get('type')] = next_format
+
+	def _parse_format_range(self, frmt):
+		frmt_range = frmt.find('range')
+		format_range = { 'operator': frmt_range.get('operator') }
+		range_value = frmt_range.get('value')
+		if range_value is not None:
+			format_range['value'] = [float(range_value)]
+		else:
+			min_node = frmt_range.find('min')
+			max_node = frmt_range.find('max')
+			if min_node is not None and max_node is not None:
+				format_range['value'] = [float(min_node.text), float(max_node.text)]
+			else:
+				raise Exception('Error! Invalid percentage formatting XML.')
+		return format_range
+
 class JobApplicationConfig:
 	def __init__(self, app_title, job_name):
 		self.app_title = app_title

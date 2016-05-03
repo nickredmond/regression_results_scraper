@@ -3,14 +3,15 @@ from openpyxl.formatting.rule import CellIsRule
 import os.path
 
 class WorkbookManager:
-	def __init__(self, workbook):
+	def __init__(self, workbook, percentage_formatting):
 		self.workbook = workbook
+		self.percentage_formatting = percentage_formatting
 
 	def write_results_to_worksheet(self, test_results, sheet_name, is_new_sheet=False):
 		worksheet = self.workbook.create_sheet() if is_new_sheet else self.workbook.active
 		worksheet.title = sheet_name
 
-		table = ResultsTable(sheet_name)
+		table = ResultsTable(sheet_name, self.percentage_formatting)
 		for result in test_results:
 			table.add_result(result['app_title'], result['number_passing'], result['number_failing'])
 		next_row = table.write_results(worksheet) + 1
@@ -20,7 +21,7 @@ class WorkbookManager:
 		next_row += 1
 
 		for result in test_results:
-			failures = FailureList(result['app_title'], result['failure_links'])
+			failures = FailureList(result['app_title'], result['failure_links'], self.percentage_formatting)
 			next_row = failures.write_results(worksheet, next_row + 1)
 
 	def save_workbook(self):
@@ -65,10 +66,6 @@ class WorksheetManager:
 		self.worksheet[cell_location].hyperlink = link['url']
 		self.worksheet[cell_location].font = Font(underline='single', color='0563C1')
 
-class ResultColors:
-	FONT_SUCCESS = '006100'
-	FILL_SUCCESS = 'C6EFCE'
-
 class ResultsTable:
 	STARTING_ROW = 2
 	STARTING_COL = 66
@@ -77,18 +74,16 @@ class ResultsTable:
 		top=Side(style='thin',color='000000'),
 		bottom=Side(style='thin',color='000000'))
 
-	def __init__(self, job_name):
+	def __init__(self, job_name, percentage_formatting):
 		self.job_name = job_name
+		self.percentage_formatting = percentage_formatting
 		self.results = []
 
-	@classmethod
-	def add_status_formatting_to_range(cls, ws, format_range):
-		ws.conditional_formatting.add(format_range, CellIsRule(operator='greaterThan', formula=[0.9949999], 
-			fill=WorksheetManager.fill_from_hex_value(ResultColors.FILL_SUCCESS), font=Font(color=ResultColors.FONT_SUCCESS)))
-		ws.conditional_formatting.add(format_range, CellIsRule(operator='between', formula=[0.75, 0.9949999], 
-			fill=WorksheetManager.fill_from_hex_value('FFEB9C'), font=Font(color='9C6500')))
-		ws.conditional_formatting.add(format_range, CellIsRule(operator='lessThan', formula=[0.75], 
-			fill=WorksheetManager.fill_from_hex_value('FFC7CE'), font=Font(color='9C0006')))
+	def add_status_formatting_to_range(self, ws, format_range):
+		for format_type, frmt in self.percentage_formatting.items():
+			ws.conditional_formatting.add(format_range, CellIsRule(operator=frmt['range']['operator'], 
+				formula=frmt['range']['value'], fill=WorksheetManager.fill_from_hex_value(frmt['fill_color']),
+				font=Font(color=frmt['font_color'])))
 
 	def add_result(self, app_name, passCount, failCount):
 		self.results.append({'app_name': app_name, 'passCount': passCount, 'failCount': failCount})
@@ -101,7 +96,7 @@ class ResultsTable:
 		avg_col = chr(ResultsTable.STARTING_COL + 5)
 		ending_row = str(ResultsTable.STARTING_ROW + len(self.results) + 1)
 		format_range = percent_col + str(ResultsTable.STARTING_ROW + 1) + ':' + percent_col + ending_row 
-		ResultsTable.add_status_formatting_to_range(worksheet, format_range)
+		self.add_status_formatting_to_range(worksheet, format_range)
 		excel_mgr = WorksheetManager(worksheet)
 
 		row = ResultsTable.STARTING_ROW
@@ -149,7 +144,7 @@ class ResultsTable:
 		stdev_passed_formula = '=STDEV.P(' + formula_range + ')'
 		excel_mgr.paint_cell(row-1, col+2, 'Avg. % Pass', fill_color='000000', font_color='FFFFFF', is_bold=True)
 		excel_mgr.paint_cell(row, col+2, avg_passed_formula, border=ResultsTable.BORDER, is_percent=True)
-		ResultsTable.add_status_formatting_to_range(worksheet, (chr(col+2) + str(row) + ':' + chr(col+2) +str(row)))
+		self.add_status_formatting_to_range(worksheet, (chr(col+2) + str(row) + ':' + chr(col+2) +str(row)))
 		worksheet.column_dimensions[chr(col+2)].width = 15
 
 		return row + 1
@@ -157,17 +152,20 @@ class ResultsTable:
 class FailureList:
 	COLUMN = ResultsTable.STARTING_COL
 
-	def __init__(self, app_name, failures):
+	def __init__(self, app_name, failures, percentage_formatting):
 		self.app_name = app_name
 		self.failures = failures
+		self.percentage_formatting = percentage_formatting
 
 	def write_results(self, worksheet, row_number):
 		excel_mgr = WorksheetManager(worksheet)
 		excel_mgr.paint_cell(row_number, FailureList.COLUMN, self.app_name)
 		row = row_number + 1
 		if len(self.failures) == 0:
-			excel_mgr.paint_cell(row, FailureList.COLUMN, 'No Failures', is_italic=True, fill_color=ResultColors.FILL_SUCCESS,
-				font_color=ResultColors.FONT_SUCCESS)
+			success_font = self.percentage_formatting['success']['font_color']
+			success_fill = self.percentage_formatting['success']['fill_color']
+			excel_mgr.paint_cell(row, FailureList.COLUMN, 'No Failures', is_italic=True, fill_color=success_fill,
+				font_color=success_font)
 			row += 1
 		else:
 			for link in self.failures:

@@ -5,9 +5,9 @@ from config import JobReportingConfigManager
 from excel_reporting import WorkbookManager
 from reporting_ui import ProgressBar, ReportingStatus
 
-excel_manager = WorkbookManager(Workbook())
 config_manager = JobReportingConfigManager()
 config_manager.read_config_from_file()
+excel_manager = WorkbookManager(Workbook(), config_manager.percentage_formatting)
 
 is_rerun = False
 for config in config_manager.rerun_job_configs:

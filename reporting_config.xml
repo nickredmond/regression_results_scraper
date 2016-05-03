@@ -1,5 +1,25 @@
 <reporting_config>
 	<base_url>http://172.31.8.12:8080</base_url>
+	<percentage_formatting>
+		<format type="success">
+			<font_color>006100</font_color>
+			<fill_color>C6EFCE</fill_color>
+			<range operator="greaterThan" value="0.9949999" />
+		</format>
+		<format type="unstable">
+			<font_color>9C6500</font_color>
+			<fill_color>FFEB9C</fill_color>
+			<range operator="between">
+				<min>0.75</min>
+				<max>0.9949999</max>
+			</range>
+		</format>
+		<format type="failure">
+			<font_color>9C0006</font_color>
+			<fill_color>FFC7CE</fill_color>
+			<range operator="lessThan" value="0.75" />
+		</format>
+	</percentage_formatting>
 	<job_config>
 		<view_name>GL Regression</view_name>
 		<job_name>GL Regression Build</job_name>
