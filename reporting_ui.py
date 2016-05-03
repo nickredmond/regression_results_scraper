@@ -7,9 +7,9 @@ class ProgressBar(threading.Thread):
 	PROGRESS_ICON = '#'
 	NO_PROGRESS_ICON = '-'
 
-	def __init__(self, results_service, job_name, bar_width=20, fps=DEFAULT_FPS):
+	def __init__(self, reporting_status, job_name, bar_width=20, fps=DEFAULT_FPS):
 		threading.Thread.__init__(self)
-		self.results_service = results_service
+		self.reporting_status = reporting_status
 		self.bar_width = bar_width
 		self.fps = fps
 		self.job_name = job_name
@@ -21,6 +21,7 @@ class ProgressBar(threading.Thread):
 	def run(self):
 		percent_complete = self._percent_complete()
 		while percent_complete < 1.0:
+			# print('really: ' + str(self.reporting_status.current_build_number))
 			bar_value = self.job_name + '> ['
 			# sys.stdout.write("\r{0}>".format())
 			number_bars = int(percent_complete * self.bar_width)
@@ -45,9 +46,15 @@ class ProgressBar(threading.Thread):
 		print('')
 
 	def _percent_complete(self):
-		reporting_status = self.results_service.reporting_status()
-		starting_build_number = reporting_status['starting_build_number']
-		actual_percent_complete = (float(reporting_status['current_build_number'] - starting_build_number) /
-			float(reporting_status['ending_build_number'] - starting_build_number))
+		# reporting_status = self.results_service.reporting_status()
+		starting_build_number = self.reporting_status.starting_build_number
+		actual_percent_complete = (float(self.reporting_status.current_build_number - starting_build_number) /
+			float(self.reporting_status.ending_build_number - starting_build_number))
 		percent_complete = (1 - self.manual_progression) * actual_percent_complete
 		return percent_complete
+
+class ReportingStatus:
+	def __init__(self, starting_build_number, ending_build_number):
+		self.starting_build_number = starting_build_number
+		self.ending_build_number = ending_build_number
+		self.current_build_number = starting_build_number

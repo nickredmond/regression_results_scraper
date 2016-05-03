@@ -25,7 +25,7 @@ class WorkbookManager:
 
 	def save_workbook(self):
 		default_filename = 'regression_run'
-		filename = input('Enger filename (\'' + default_filename + '\'): ') or default_filename
+		filename = input('Enter filename (\'' + default_filename + '\'): ') or default_filename
 		extension = '.xlsx'
 		filename = filename.replace(extension, '')
 
