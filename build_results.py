@@ -22,7 +22,7 @@ class JenkinsClient:
 		return int(data['id'])
 
 	@classmethod
-	def construct_test_results_for_build(cls, job_config, build_number, is_rerun=False):
+	def construct_test_results_for_build(cls, job_config, build_number, is_rerun=False, logger=None):
 		result = { 'failure_links': [] }
 		application = None
 		job = job_config.job(is_rerun)
@@ -41,7 +41,7 @@ class JenkinsClient:
 				if callable(getattr(parser, 'parse_application_title', None)):
 					result = parser.parse_application_title(job_config, job, build_number, result)
 		except HTTPError:
-			# print('No such build number \'' + str(build_number) + '\' for job \'' + job + '\'; Skipping...')
+			logger.log_info('No such build number \'' + str(build_number) + '\' for job \'' + job + '\'; Skipping...')
 			result = None
 
 		return result
@@ -136,27 +136,17 @@ build_history_reporting_length = 30
 
 class BuildResultsService:
 	DEFAULT_CONFIG_LOCATION = "./"
-	def __init__(self, job_config):
+	def __init__(self, job_config, logger):
 		self.job_config = job_config
+		self.logger = logger
 		self.reporting_status = ReportingStatus(0, 1)
-
-	# def reporting_status(self):
-	# 	return {
-	# 		'starting_build_number': self.starting_build_number,
-	# 		'ending_build_number': self.ending_build_number,
-	# 		'current_build_number': self.current_build_number
-	# 	}
 
 	def construct_build_number_range(self, is_rerun=False):
 		last_build_number = JenkinsClient.latest_build_id(self.job_config.base_url, self.job_config.view_name, 
 			self.job_config.job(is_rerun))
-		# self.reporting_status.starting_build_number = (last_build_number - build_history_reporting_length)
-		# self.reporting_status.ending_build_number = (last_build_number + 1)
-		# self.reporting_status.current_build_number = self.reporting_status.starting_build_number
 		return range(last_build_number - build_history_reporting_length, last_build_number + 1)
 
 	def compose_rerun_regression_results(self):
-		# self._start_progress_bar()
 		build_results = []
 
 		build_info = {}
@@ -169,25 +159,22 @@ class BuildResultsService:
 		self._start_progress_bar(build_info=build_info)
 
 		for number in job_build_range:
-			next_result = JenkinsClient.construct_test_results_for_build(self.job_config, number)
+			next_result = JenkinsClient.construct_test_results_for_build(self.job_config, number, logger=self.logger)
 			if next_result:
 				if next_result['app_title'] in [result['app_title'] for result in build_results]:
 					build_results = list(filter(lambda result: result['app_title'] != next_result['app_title'], build_results))
 				build_results.append(next_result)
-			self.reporting_status.current_build_number += 1 #= number
+			self.reporting_status.current_build_number += 1
 		self.reporting_status.current_build_number += 1
-		# print('s.o.b: ' + str(self.reporting_status.current_build_number))
 
-		# self._start_progress_bar(True)
 		rerun_results = []
 		for number in self.construct_build_number_range(True):
-			# self.reporting_status.current_build_number = number
-			next_result = JenkinsClient.construct_test_results_for_build(self.job_config, number, True)
+			next_result = JenkinsClient.construct_test_results_for_build(self.job_config, number, True, logger=self.logger)
 			if next_result:
 				if next_result['app_title'] in [result['app_title'] for result in rerun_results]:
 					rerun_results = list(filter(lambda result: result['app_title'] != next_result['app_title'], rerun_results))
 				rerun_results.append(next_result)
-			self.reporting_status.current_build_number += 1 #= number
+			self.reporting_status.current_build_number += 1
 		self.reporting_status.current_build_number += 1
 		self.progress_bar.join()
 
@@ -204,10 +191,8 @@ class BuildResultsService:
 		return aggregated_results
 
 	def compose_single_job_regression_results(self, app_title):
-		# self._start_progress_bar()
 		data = JenkinsClient.json_response_from_request(self.job_config.base_url, self.job_config.view_name, 
 			self.job_config.job_name, -1)
-		# self.progress_bar.progress(0.2)
 
 		last_build_number = int(data['id'])
 		case_names = []
@@ -218,10 +203,9 @@ class BuildResultsService:
 
 		tests = []
 
-		results_service = BuildResultsService(self.job_config)
+		results_service = BuildResultsService(self.job_config, self.logger)
 		for build_number in results_service.construct_build_number_range():
-			# self.current_build_number = build_number
-			new_results = JenkinsClient.construct_test_results_for_build(self.job_config, build_number)
+			new_results = JenkinsClient.construct_test_results_for_build(self.job_config, build_number, logger=self.logger)
 			if new_results:
 				for case in new_results['test_cases']:
 					case_name_tokens = re.compile(self.job_config.test_name_delimiter).split(case['name'])
@@ -235,7 +219,6 @@ class BuildResultsService:
 						'failure_link': failure_link
 					}
 					tests.append(new_test)
-		# self.current_build_number += 1
 
 		passing_count = len(list(filter(lambda test: test['is_passing'], tests)))
 		failing_count = len(list(filter(lambda test: not test['is_passing'], tests)))
