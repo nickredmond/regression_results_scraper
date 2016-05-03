@@ -73,7 +73,12 @@ class JobReportingConfig:
 		self.results_parsers.append(parser)
 
 	def job(self, is_rerun):
-		return self.rerun_name if is_rerun else self.job_name
+		job = None
+		if is_rerun and getattr(self, 'rerun_name', None):
+			job = self.rerun_name
+		else:
+			job = self.job_name
+		return job
 
 class JobGroupReportingConfig(JobReportingConfig):
 	def __init__(self, view_name, sheet_title, classname_index, test_name_delimiter):
