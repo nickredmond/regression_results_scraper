@@ -119,6 +119,20 @@
 			<job_name>navigation SE DG DR EX PM</job_name>
 		</job_config>
 	</job_config_group>
+	<job_config_group view_name="GL Raptor Regression">
+		<test_filename_index>8</test_filename_index>
+		<test_name_delimiter>test_scenario_[0-9]+[a-z]+_</test_name_delimiter>
+		<results_parser>TestCaseNamesParser</results_parser>
+		<sheet_title>GL0406R + GL2000R</sheet_title>
+		<job_config>
+			<app_title>GL0406R</app_title>
+			<job_name>GL0406R</job_name>
+		</job_config>
+		<job_config>
+			<app_title>GL2000R</app_title>
+			<job_name>GL2000R</job_name>
+		</job_config>
+	</job_config_group>
 	<job_config_group combined_view_name="BO + GL + IN">
 		<test_filename_index>8</test_filename_index>
 		<sheet_title>BO + GL + IN</sheet_title>
