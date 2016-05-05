@@ -78,11 +78,11 @@ class WorksheetManager:
 		underline_value = 'single' if is_underline else None
 		self.worksheet[cell_location].font = Font(bold=is_bold, italic=is_italic, underline=underline_value, size=font_size, color=font_color)
 
-	def paint_hyperlink(self, row, col, link, border=None):
+	def paint_hyperlink(self, row, col, link, border=None, font_size=12):
 		cell_location = chr(col) + str(row)
 		self.worksheet[cell_location] = link['value']
 		self.worksheet[cell_location].hyperlink = link['url']
-		self.worksheet[cell_location].font = Font(underline='single', color='0563C1')
+		self.worksheet[cell_location].font = Font(underline='single', color='0563C1', size=font_size)
 		if border:
 			self.worksheet[cell_location].border = border
 
