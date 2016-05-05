@@ -43,15 +43,24 @@ class JobReportingConfigManager:
 
 		for job_group in root.findall('job_config_group'):
 			view_name = job_group.get('view_name')
-			classname_index = int(job_group.find('classname_index').text)
-			test_name_delimiter = job_group.find('test_name_delimiter').text
+			combined_view_name = job_group.get('combined_view_name')
+			classname_index = int(self._parse_node_text(job_group, 'classname_index') or -1)
+			test_name_delimiter = self._parse_node_text(job_group, 'test_name_delimiter')
 			sheet_title = job_group.find('sheet_title').text
-			job_group_config = JobGroupReportingConfig(view_name, sheet_title, classname_index, test_name_delimiter)
+			test_filename_index = job_group.find('test_filename_index')
+			if test_filename_index is not None:
+				test_filename_index = int(test_filename_index.text)
+
+			config_title = (view_name or combined_view_name)
+			job_group_config = JobGroupReportingConfig(config_title, sheet_title, classname_index, test_name_delimiter,
+				test_filename_index)
 
 			for job_config in job_group.findall('job_config'):
 				app_title = job_config.find('app_title').text
 				job_name = job_config.find('job_name').text
-				job_group_config.add_job_config(app_title, job_name)
+				if view_name is None:
+					view_name = self._parse_node_text(job_config, 'view_name')
+				job_group_config.add_job_config(app_title, job_name, view_name)
 			job_group_config.base_url = base_url
 			job_group_config.add_results_parser(self.get_results_parser(job_group))
 			self.job_group_configs.append(job_group_config)
@@ -64,6 +73,10 @@ class JobReportingConfigManager:
 			next_format['fill_color'] = frmt.find('fill_color').text
 			next_format['range'] = self._parse_format_range(frmt)
 			self.percentage_formatting[frmt.get('type')] = next_format
+
+	def _parse_node_text(self, root_node, node_name):
+		node = root_node.find(node_name)
+		return node.text if node is not None else None
 
 	def _parse_format_range(self, frmt):
 		frmt_range = frmt.find('range')
@@ -105,18 +118,19 @@ class JobReportingConfig:
 		return job
 
 class JobGroupReportingConfig(JobReportingConfig):
-	def __init__(self, view_name, sheet_title, classname_index, test_name_delimiter):
+	def __init__(self, view_name, sheet_title, classname_index, test_name_delimiter, test_filename_index=None):
 		super(JobGroupReportingConfig, self).__init__(view_name, sheet_title, classname_index)
 		self.test_name_delimiter = test_name_delimiter
+		self.test_filename_index = test_filename_index
 		self.job_application_mappings = {}
 
-	def add_job_config(self, app_title, job_name):
-		self.job_application_mappings[app_title] = job_name
+	def add_job_config(self, app_title, job_name, view_name=None):
+		self.job_application_mappings[app_title] = { 'job': job_name, 'view': view_name }
 
 	def config_for(self, app_title):
-		job_name = self.job_application_mappings[app_title]
 		config = copy.deepcopy(self)
-		config.job_name = job_name
+		config.job_name = self.job_application_mappings[app_title]['job']
+		config.view_name = self.job_application_mappings[app_title]['view'] 
 		return config
 
 class RerunJobReportingConfig(JobReportingConfig):

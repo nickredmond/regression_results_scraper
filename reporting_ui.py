@@ -14,13 +14,14 @@ class ProgressBar(threading.Thread):
 		self.fps = fps
 		self.job_name = job_name
 		self.manual_progression = 0.0
+		self._is_running = True
 
 	def progress(self, percentage):
 		self.manual_progression += percentage
 
 	def run(self):
 		percent_complete = self._percent_complete()
-		while percent_complete < 1.0:
+		while percent_complete < 1.0 and self._is_running:
 			# print('really: ' + str(self.reporting_status.current_build_number))
 			bar_value = self.job_name + '> ['
 			# sys.stdout.write("\r{0}>".format())
@@ -44,6 +45,9 @@ class ProgressBar(threading.Thread):
 		sys.stdout.write("\r{0}".format(bar_value))
 		sys.stdout.flush()
 		print('')
+
+	def stop_execution(self):
+		self._is_running = False
 
 	def _percent_complete(self):
 		# reporting_status = self.results_service.reporting_status()

@@ -119,4 +119,29 @@
 			<job_name>navigation SE DG DR EX PM</job_name>
 		</job_config>
 	</job_config_group>
+	<job_config_group combined_view_name="BO + GL + IN">
+		<test_filename_index>8</test_filename_index>
+		<sheet_title>BO + GL + IN</sheet_title>
+		<results_parser>TestCaseNamesParser</results_parser>
+		<job_config>
+			<app_title>BO1110R</app_title>
+			<job_name>BO1110R</job_name>
+			<view_name>BO Regression</view_name>
+		</job_config>
+		<job_config>
+			<app_title>BO2000R</app_title>
+			<job_name>BO2000R</job_name>
+			<view_name>BO Regression</view_name>
+		</job_config>
+		<job_config>
+			<app_title>GL2000R</app_title>
+			<job_name>GL2000R</job_name>
+			<view_name>GL Raptor Regression</view_name>
+		</job_config>
+		<job_config>
+			<app_title>IN1000DB</app_title>
+			<job_name>IN1000DB</job_name>
+			<view_name>IN Regression</view_name>
+		</job_config>
+	</job_config_group>
 </reporting_config>

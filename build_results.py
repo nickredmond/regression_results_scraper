@@ -125,10 +125,11 @@ class TestCaseNamesParser(TestResultsParser):
 			modified_result['test_cases'] = []
 		is_passing = (case['status'] not in ['FAILED', 'REGRESSION'])
 
-		next_case = { 'name': case['name'], 'is_passing': is_passing, 'failure_url': None }
+		next_case = { 'name': case['name'], 'is_passing': is_passing, 'failure_link': None }
 		failure_url = cls.parse_failure_url(job_config, case, class_name_parts, job, build_number)
 		if failure_url:
-			next_case['failure_url'] = failure_url
+			failure_link = cls.construct_failure_link_value(job_config, case['name'], class_name_parts)
+			next_case['failure_link'] = { 'value': failure_link, 'url': failure_url }
 		modified_result['test_cases'].append(next_case)
 		return modified_result
 
@@ -140,6 +141,7 @@ class BuildResultsService:
 		self.job_config = job_config
 		self.logger = logger
 		self.reporting_status = ReportingStatus(0, 1)
+		self.progress_bar = None
 
 	def construct_build_number_range(self, is_rerun=False):
 		last_build_number = JenkinsClient.latest_build_id(self.job_config.base_url, self.job_config.view_name, 
@@ -208,11 +210,15 @@ class BuildResultsService:
 			new_results = JenkinsClient.construct_test_results_for_build(self.job_config, build_number, logger=self.logger)
 			if new_results:
 				for case in new_results['test_cases']:
-					case_name_tokens = re.compile(self.job_config.test_name_delimiter).split(case['name'])
+					case_name_tokens = [case['name']]
+					if getattr(self.job_config, 'test_name_delimiter', None):
+						case_name_tokens = re.compile(self.job_config.test_name_delimiter).split(case['name'])
 					case_name = case_name_tokens[1] if len(case_name_tokens) > 1 else case_name_tokens[0]
 					if case_name in [test['case_name'] for test in tests]:
 						tests = list(filter(lambda test: test['case_name'] != case_name, tests))
-					failure_link = { 'value': case_name, 'url': case['failure_url'] } if case['failure_url'] else None
+
+					# failure_value = TestResultsParser.construct_failure_link_value(self.job_config, case['name'])
+					failure_link = case['failure_link'] #{ 'value': case_name, 'url': case['failure_url'] } if case['failure_url'] else None
 					new_test = { 
 						'case_name': case_name, 
 						'is_passing': case['is_passing'], 
@@ -239,6 +245,9 @@ class BuildResultsService:
 			self._reset_reporting_status()
 		self.progress_bar = ProgressBar(self.reporting_status, self.job_config.job_name)
 		self.progress_bar.start()
+
+	def stop_execution(self):
+		self.progress_bar.stop_execution()
 
 	def _reset_reporting_status(self):
 		self.reporting_status.starting_build_number = 0
