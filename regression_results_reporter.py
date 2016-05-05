@@ -11,11 +11,23 @@ config_manager.read_config_from_file()
 excel_manager = WorkbookManager(Workbook(), config_manager.percentage_formatting)
 logger = Logger(header='Regression Results Report')
 
+def compose_overall_result(config, test_results):
+	return {
+		'app_title': config.sheet_title,
+		'number_passing': sum(result['number_passing'] for result in test_results),
+		'number_failing': sum(result['number_failing'] for result in test_results),
+		'failure_links': None
+	}
+
 is_rerun = False
+overall_results = []
 for config in config_manager.rerun_job_configs:
 	build_service = BuildResultsService(config, logger)
 	try:
 		results = build_service.compose_rerun_regression_results()
+		overall_result = compose_overall_result(config, results)
+		overall_results.append(overall_result)
+
 		excel_manager.write_results_to_worksheet(results, config.sheet_title, is_rerun)
 		is_rerun = True
 	except:
@@ -37,11 +49,16 @@ for config in config_manager.job_group_configs:
 			reporting_status.current_build_number += 1
 		reporting_status.current_build_number += 1
 		progress_bar.join()
+		overall_result = compose_overall_result(config, group_results)
+		overall_results.append(overall_result)
+
 		excel_manager.write_results_to_worksheet(group_results, config.sheet_title, is_rerun)
 	except:
 		progress_bar.stop_execution()
 		raise
 	is_rerun = True
 
+excel_manager.write_results_to_worksheet(overall_results, 'Regression Results', True, table_name='Module',
+	table_title='Overall Automated Regression Results', is_failures_reported=False, is_main_sheet=True)
 excel_manager.save_workbook()
 logger.dump()
