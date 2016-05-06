@@ -20,6 +20,7 @@ class JobReportingConfigManager:
 		tree = ET.parse(self.config_filename)
 		root = tree.getroot()
 		base_url = root.find('base_url').text
+		build_history_reporting_length = int(root.find('build_history_reporting_length').text)
 
 		for job_config in root.findall('job_config'):
 			view_name = job_config.find('view_name').text
@@ -38,6 +39,7 @@ class JobReportingConfigManager:
 			for mapping in job_config.find('app_title_mappings').findall('mapping'):
 				config_obj.add_app_title_mapping(mapping.get('app_key'), mapping.get('title'))
 			config_obj.base_url = base_url
+			config_obj.build_history_reporting_length = build_history_reporting_length
 			config_obj.add_results_parser(self.get_results_parser(job_config))
 			self.rerun_job_configs.append(config_obj)
 
@@ -62,6 +64,7 @@ class JobReportingConfigManager:
 					view_name = self._parse_node_text(job_config, 'view_name')
 				job_group_config.add_job_config(app_title, job_name, view_name)
 			job_group_config.base_url = base_url
+			job_group_config.build_history_reporting_length = build_history_reporting_length
 			job_group_config.add_results_parser(self.get_results_parser(job_group))
 			self.job_group_configs.append(job_group_config)
 
@@ -104,6 +107,7 @@ class JobReportingConfig:
 		self.sheet_title = sheet_title
 		self.application_classname_index = classname_index
 		self.base_url = None
+		self.build_history_reporting_length = 0
 		self.results_parsers = []
 
 	def add_results_parser(self, parser):

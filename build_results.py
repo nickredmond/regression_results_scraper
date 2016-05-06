@@ -133,8 +133,6 @@ class TestCaseNamesParser(TestResultsParser):
 		modified_result['test_cases'].append(next_case)
 		return modified_result
 
-build_history_reporting_length = 30
-
 class BuildResultsService:
 	DEFAULT_CONFIG_LOCATION = "./"
 	def __init__(self, job_config, logger):
@@ -146,7 +144,7 @@ class BuildResultsService:
 	def construct_build_number_range(self, is_rerun=False):
 		last_build_number = JenkinsClient.latest_build_id(self.job_config.base_url, self.job_config.view_name, 
 			self.job_config.job(is_rerun))
-		return range(last_build_number - build_history_reporting_length, last_build_number + 1)
+		return range(last_build_number - self.job_config.build_history_reporting_length, last_build_number + 1)
 
 	def compose_rerun_regression_results(self):
 		build_results = []

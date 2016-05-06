@@ -1,5 +1,6 @@
 <reporting_config>
 	<base_url>http://172.31.8.12:8080</base_url>
+	<build_history_reporting_length>30</build_history_reporting_length>
 	<percentage_formatting>
 		<format type="success">
 			<font_color>006100</font_color>
