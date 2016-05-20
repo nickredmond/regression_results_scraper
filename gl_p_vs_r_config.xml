@@ -1,0 +1,97 @@
+<reporting_config>
+	<base_url>http://172.31.8.12:8080</base_url>
+	<build_history_reporting_length>50</build_history_reporting_length>
+	<percentage_formatting>
+		<format type="success">
+			<font_color>006100</font_color>
+			<fill_color>C6EFCE</fill_color>
+			<range operator="greaterThan" value="0.9949999" />
+		</format>
+		<format type="unstable">
+			<font_color>9C6500</font_color>
+			<fill_color>FFEB9C</fill_color>
+			<range operator="between">
+				<min>0.75</min>
+				<max>0.9949999</max>
+			</range>
+		</format>
+		<format type="failure">
+			<font_color>9C0006</font_color>
+			<fill_color>FFC7CE</fill_color>
+			<range operator="lessThan" value="0.75" />
+		</format>
+	</percentage_formatting>
+	<job_config>
+		<view_name>GL Regression</view_name>
+		<job_name>GL Regression Build</job_name>
+		<rerun_name>GL Regression Test Fail</rerun_name>
+		<classname_index>7</classname_index>
+		<test_filename_index>8</test_filename_index>
+		<sheet_title>GL Regression</sheet_title>
+		<results_parser>ApplicationNameParser</results_parser>
+		<app_title_mappings>
+			<mapping app_key="accounts_receivable" title="Accounts Receivable" />
+			<mapping app_key="accounting_tools" title="Accounting Tools" />
+			<mapping app_key="application_environment" title="Application Environment" />
+			<mapping app_key="audit_reporting" title="Audit Reporting" />
+			<mapping app_key="bank_deposits" title="Bank Deposits" />
+			<mapping app_key="cashier" title="Cashier" />
+			<mapping app_key="charge_customers" title="Charge Customers" />
+			<mapping app_key="chart_of_accounts" title="Chart of Accounts" />
+			<mapping app_key="enter_transactions" title="Enter Transactions" />
+			<mapping app_key="financial_analysis" title="Financial Analysis" />
+			<mapping app_key="gl_customer_contact" title="GL Customer Contact" />
+			<mapping app_key="gl_inventory" title="GL Inventory" />
+			<mapping app_key="miscellaneous" title="Miscellaneous" />
+			<mapping app_key="glptrns" title="GLPTRNS" />
+			<mapping app_key="hand_written_checks" title="Hand Written Checks" />
+			<mapping app_key="inquiry" title="Inquiry" />
+			<mapping app_key="managed_accounts" title="Managed Accounts" />
+			<mapping app_key="open_payables" title="Open Payables" />
+			<mapping app_key="purchasing" title="Purchasing" />
+			<mapping app_key="receipt_cash" title="Receipt Cash" />
+			<mapping app_key="reconcile_bank_accounts" title="Reconcile Bank Accounts" />
+			<mapping app_key="report_to_outside_parties" title="Report to Outside Parties" />
+			<mapping app_key="transaction_analysis" title="Transaction Analysis" />
+			<mapping app_key="vendors" title="Vendors" />
+			<mapping app_key="write_checks" title="Write Checks" />
+			<mapping app_key="dmscore_6420" title="DMSCORE 6420" />
+		</app_title_mappings>
+	</job_config>
+	<job_config>
+		<view_name>GL Regression</view_name>
+		<job_name>GL Regression - ArkonaR</job_name>
+		<classname_index>7</classname_index>
+		<test_filename_index>8</test_filename_index>
+		<sheet_title>GL Regression - ArkonaR</sheet_title>
+		<results_parser>ApplicationNameParser</results_parser>
+		<app_title_mappings>
+			<mapping app_key="accounts_receivable" title="Accounts Receivable" />
+			<mapping app_key="accounting_tools" title="Accounting Tools" />
+			<mapping app_key="application_environment" title="Application Environment" />
+			<mapping app_key="audit_reporting" title="Audit Reporting" />
+			<mapping app_key="bank_deposits" title="Bank Deposits" />
+			<mapping app_key="cashier" title="Cashier" />
+			<mapping app_key="charge_customers" title="Charge Customers" />
+			<mapping app_key="chart_of_accounts" title="Chart of Accounts" />
+			<mapping app_key="enter_transactions" title="Enter Transactions" />
+			<mapping app_key="financial_analysis" title="Financial Analysis" />
+			<mapping app_key="gl_customer_contact" title="GL Customer Contact" />
+			<mapping app_key="gl_inventory" title="GL Inventory" />
+			<mapping app_key="miscellaneous" title="Miscellaneous" />
+			<mapping app_key="glptrns" title="GLPTRNS" />
+			<mapping app_key="hand_written_checks" title="Hand Written Checks" />
+			<mapping app_key="inquiry" title="Inquiry" />
+			<mapping app_key="managed_accounts" title="Managed Accounts" />
+			<mapping app_key="open_payables" title="Open Payables" />
+			<mapping app_key="purchasing" title="Purchasing" />
+			<mapping app_key="receipt_cash" title="Receipt Cash" />
+			<mapping app_key="reconcile_bank_accounts" title="Reconcile Bank Accounts" />
+			<mapping app_key="report_to_outside_parties" title="Report to Outside Parties" />
+			<mapping app_key="transaction_analysis" title="Transaction Analysis" />
+			<mapping app_key="vendors" title="Vendors" />
+			<mapping app_key="write_checks" title="Write Checks" />
+			<mapping app_key="dmscore_6420" title="DMSCORE 6420" />
+		</app_title_mappings>
+	</job_config>
+</reporting_config>

@@ -4,9 +4,14 @@ from build_results import BuildResultsService
 from config import JobReportingConfigManager
 from excel_reporting import WorkbookManager
 from reporting_ui import ProgressBar, ReportingStatus
-from utils import Logger
+from utils import Logger, CommandArgumentsParser
 
-config_manager = JobReportingConfigManager()
+config_filename = CommandArgumentsParser.get_argument('config-filename', 'c')
+if config_filename and config_filename is True:
+	print('INFO: Did not specify any config filename value, so the default will be used.')
+	config_filename = None
+
+config_manager = JobReportingConfigManager(config_filename)
 config_manager.read_config_from_file()
 excel_manager = WorkbookManager(Workbook(), config_manager.percentage_formatting)
 logger = Logger(header='Regression Results Report')

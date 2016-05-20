@@ -113,9 +113,12 @@ class JobReportingConfig:
 	def add_results_parser(self, parser):
 		self.results_parsers.append(parser)
 
+	def is_rerun_defined(self):
+		return getattr(self, 'rerun_name', None) and (self.rerun_name is not None)
+
 	def job(self, is_rerun):
 		job = None
-		if is_rerun and getattr(self, 'rerun_name', None):
+		if is_rerun and self.is_rerun_defined():
 			job = self.rerun_name
 		else:
 			job = self.job_name

@@ -96,6 +96,7 @@ class ApplicationNameParser(TestResultsParser):
 		modified_result = result
 		data = JenkinsClient.json_response_from_request(job_config.base_url, job_config.view_name, job, build_number)
 		parameters = None
+		
 		if 'parameters' in data['actions'][0]:
 			parameters = data['actions'][0]['parameters']
 		elif 'parameters' in data['actions'][1]:
@@ -142,9 +143,13 @@ class BuildResultsService:
 		self.progress_bar = None
 
 	def construct_build_number_range(self, is_rerun=False):
-		last_build_number = JenkinsClient.latest_build_id(self.job_config.base_url, self.job_config.view_name, 
-			self.job_config.job(is_rerun))
-		return range(last_build_number - self.job_config.build_history_reporting_length, last_build_number + 1)
+		build_number_range = []
+		if (not is_rerun) or self.job_config.is_rerun_defined():
+			last_build_number = JenkinsClient.latest_build_id(self.job_config.base_url, self.job_config.view_name, 
+				self.job_config.job(is_rerun))
+			build_number_range = \
+				range(last_build_number - self.job_config.build_history_reporting_length, last_build_number + 1)
+		return build_number_range
 
 	def compose_rerun_regression_results(self):
 		build_results = []
@@ -168,7 +173,7 @@ class BuildResultsService:
 		self.reporting_status.current_build_number += 1
 
 		rerun_results = []
-		for number in self.construct_build_number_range(True):
+		for number in rerun_build_range:
 			next_result = JenkinsClient.construct_test_results_for_build(self.job_config, number, True, logger=self.logger)
 			if next_result:
 				if next_result['app_title'] in [result['app_title'] for result in rerun_results]:

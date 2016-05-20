@@ -37,15 +37,15 @@ class WorkbookManager:
 		default_filename = 'regression_run'
 		filename = input('Enter filename (\'' + default_filename + '\'): ') or default_filename
 		extension = '.xlsx'
-		filename = filename.replace(extension, '')
+		filename = filename.replace(extension, '') + extension
 
 		is_saving = True
-		if os.path.isfile(filename + extension):
-			user_input = input('\'' + filename + extension + '\' already exists. Would you like to overwrite it (Y/N)? ')
+		if os.path.isfile(filename):
+			user_input = input('\'' + filename + '\' already exists. Would you like to overwrite it (Y/N)? ')
 			is_saving = (user_input in ['Y', 'y', 'Yes', 'YES', 'yes'])
 		if is_saving:
-			print('Saving \'' + filename + extension + '\'...')
-			self.workbook.save(filename='regression_run.xlsx')
+			print('Saving \'' + filename + '\'...')
+			self.workbook.save(filename=(filename))
 			print('Saved')
 
 	def _write_failures_to_worksheet(self, worksheet, next_row, test_results):
