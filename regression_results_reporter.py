@@ -33,7 +33,8 @@ for config in config_manager.rerun_job_configs:
 		overall_result = compose_overall_result(config, results)
 		overall_results.append(overall_result)
 
-		excel_manager.write_results_to_worksheet(results, config.sheet_title, is_rerun)
+		sorted_results = sorted(results, key=lambda k: k['app_title'])
+		excel_manager.write_results_to_worksheet(sorted_results, config.sheet_title, is_rerun)
 		is_rerun = True
 	except:
 		build_service.stop_execution()
@@ -57,6 +58,7 @@ for config in config_manager.job_group_configs:
 		overall_result = compose_overall_result(config, group_results)
 		overall_results.append(overall_result)
 
+		sorted_results = sorted(group_results, key=lambda k: k['app_title'])
 		excel_manager.write_results_to_worksheet(group_results, config.sheet_title, is_rerun)
 	except:
 		progress_bar.stop_execution()

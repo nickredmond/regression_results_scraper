@@ -80,9 +80,18 @@ class ApplicationNameParser(TestResultsParser):
 		if 'application' not in modified_result:
 			modified_result['application'] = None
 		if cls.is_application_parsable(modified_result['application'], class_name_parts, job_config): 
-			application = class_name_parts[job_config.application_classname_index]
-			if job_config.application_name_delimiter and job_config.application_name_delimiter in application:
-				application = application.split(job_config.application_name_delimiter)[1]
+			application = None
+			index = 0
+			while (not application) and index < len(job_config.classname_index_exceptions):
+				exception = job_config.classname_index_exceptions[index]
+				exception_index = int(exception['index'])
+				if len(class_name_parts) > exception_index and class_name_parts[exception_index] == exception['classname']:
+					application = exception['application']
+				index += 1
+			if not application:
+				application = class_name_parts[job_config.application_classname_index]
+				if job_config.application_name_delimiter and job_config.application_name_delimiter in application:
+					application = application.split(job_config.application_name_delimiter)[1]
 			modified_result['application'] = application
 
 		failure_url = cls.parse_failure_url(job_config, case, class_name_parts, job, build_number)
@@ -96,7 +105,7 @@ class ApplicationNameParser(TestResultsParser):
 		modified_result = result
 		data = JenkinsClient.json_response_from_request(job_config.base_url, job_config.view_name, job, build_number)
 		parameters = None
-		
+
 		if 'parameters' in data['actions'][0]:
 			parameters = data['actions'][0]['parameters']
 		elif 'parameters' in data['actions'][1]:

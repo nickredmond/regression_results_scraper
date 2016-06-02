@@ -38,6 +38,13 @@ class JobReportingConfigManager:
 				application_delimiter)
 			for mapping in job_config.find('app_title_mappings').findall('mapping'):
 				config_obj.add_app_title_mapping(mapping.get('app_key'), mapping.get('title'))
+			exceptions_list = job_config.find('classname_index_exceptions')
+			if not (exceptions_list is None or exceptions_list.findall('exception') is None):
+				for index_exception in exceptions_list.findall('exception'):
+					index = index_exception.find('index').text
+					classname = index_exception.find('classname').text
+					application = index_exception.find('application').text
+					config_obj.add_classname_index_exception(index, classname, application)
 			config_obj.base_url = base_url
 			config_obj.build_history_reporting_length = build_history_reporting_length
 			config_obj.add_results_parser(self.get_results_parser(job_config))
@@ -124,6 +131,9 @@ class JobReportingConfig:
 			job = self.job_name
 		return job
 
+	def __str__(self):
+		return '\{{ view_name: {}, sheet_title: {}, classname_index: {} }}'.format(self.view_name, self.sheet_title, self.application_classname_index)
+
 class JobGroupReportingConfig(JobReportingConfig):
 	def __init__(self, view_name, sheet_title, classname_index, test_name_delimiter, test_filename_index=None):
 		super(JobGroupReportingConfig, self).__init__(view_name, sheet_title, classname_index)
@@ -148,6 +158,14 @@ class RerunJobReportingConfig(JobReportingConfig):
 		self.application_name_delimiter = application_delimiter
 		self.app_title_mappings = {}
 		self.test_filename_index = test_filename_index
+		self.classname_index_exceptions = []
 
 	def add_app_title_mapping(self, app_key, title):
 		self.app_title_mappings[app_key] = title
+
+	def add_classname_index_exception(self, index, classname, application):
+		self.classname_index_exceptions.append({
+			'index': index,
+			'classname': classname,
+			'application': application
+		})
