@@ -1,0 +1,132 @@
+<reporting_config>
+	<base_url>http://172.31.8.12:8080</base_url>
+	<build_history_reporting_length>30</build_history_reporting_length>
+	<percentage_formatting>
+		<format type="success">
+			<font_color>006100</font_color>
+			<fill_color>C6EFCE</fill_color>
+			<range operator="greaterThan" value="0.9949999" />
+		</format>
+		<format type="unstable">
+			<font_color>9C6500</font_color>
+			<fill_color>FFEB9C</fill_color>
+			<range operator="between">
+				<min>0.75</min>
+				<max>0.9949999</max>
+			</range>
+		</format>
+		<format type="failure">
+			<font_color>9C0006</font_color>
+			<fill_color>FFC7CE</fill_color>
+			<range operator="lessThan" value="0.75" />
+		</format>
+	</percentage_formatting>
+	<job_config>
+		<view_name>ArkonaR Testing</view_name>
+		<job_name>GL_Regression_ArkonaR</job_name>
+		<classname_index>7</classname_index>
+		<test_filename_index>8</test_filename_index>
+		<sheet_title>GL Regression</sheet_title>
+		<results_parser>ApplicationNameParser</results_parser>
+		<app_title_mappings>
+			<mapping app_key="accounts_receivable" title="Accounts Receivable" />
+			<mapping app_key="accounting_tools" title="Accounting Tools" />
+			<mapping app_key="application_environment" title="Application Environment" />
+			<mapping app_key="audit_reporting" title="Audit Reporting" />
+			<mapping app_key="bank_deposits" title="Bank Deposits" />
+			<mapping app_key="cashier" title="Cashier" />
+			<mapping app_key="charge_customers" title="Charge Customers" />
+			<mapping app_key="chart_of_accounts" title="Chart of Accounts" />
+			<mapping app_key="enter_transactions" title="Enter Transactions" />
+			<mapping app_key="financial_analysis" title="Financial Analysis" />
+			<mapping app_key="gl_customer_contact" title="GL Customer Contact" />
+			<mapping app_key="gl_inventory" title="GL Inventory" />
+			<mapping app_key="miscellaneous" title="Miscellaneous" />
+			<mapping app_key="glptrns" title="GLPTRNS" />
+			<mapping app_key="hand_written_checks" title="Hand Written Checks" />
+			<mapping app_key="inquiry" title="Inquiry" />
+			<mapping app_key="managed_accounts" title="Managed Accounts" />
+			<mapping app_key="open_payables" title="Open Payables" />
+			<mapping app_key="purchasing" title="Purchasing" />
+			<mapping app_key="receipt_cash" title="Receipt Cash" />
+			<mapping app_key="reconcile_bank_accounts" title="Reconcile Bank Accounts" />
+			<mapping app_key="report_to_outside_parties" title="Report to Outside Parties" />
+			<mapping app_key="transaction_analysis" title="Transaction Analysis" />
+			<mapping app_key="vendors" title="Vendors" />
+			<mapping app_key="write_checks" title="Write Checks" />
+			<mapping app_key="dmscore_6420" title="DMSCORE 6420" />
+		</app_title_mappings>
+	</job_config>
+	<job_config>
+		<view_name>ArkonaR Testing</view_name>
+		<job_name>GL1000R_Regression_ArkonaR</job_name>
+		<classname_index>8</classname_index>
+		<test_filename_index>8</test_filename_index>
+		<application_delimiter>GL1000_</application_delimiter>
+		<sheet_title>GL1000R</sheet_title>
+		<results_parser>ApplicationNameParser</results_parser>
+		<app_title_mappings>
+			<mapping app_key="miscellaneous" title="Miscellaneous" />
+			<mapping app_key="line_field" title="Line Number" />
+			<mapping app_key="line_number" title="Line Number" />
+			<mapping app_key="amount_field" title="Amount" />
+			<mapping app_key="amount" title="Amount" />
+			<mapping app_key="change_control_number" title="Control Number" />
+			<mapping app_key="control_number" title="Control Number" />
+			<mapping app_key="change_document_number" title="Document Number" />
+			<mapping app_key="document_number" title="Document Number" />
+			<mapping app_key="cost_field" title="Cost" />
+			<mapping app_key="cost" title="Cost" />
+			<mapping app_key="change_journal" title="Journal" />
+			<mapping app_key="journal" title="Journal" />
+			<mapping app_key="date_field" title="Date" />
+			<mapping app_key="date" title="Date" />
+			<mapping app_key="test_transactions" title="Transactions" />
+			<mapping app_key="transactions" title="Transactions" />
+			<mapping app_key="reference_number" title="Reference Number" />
+			<mapping app_key="reference" title="Reference Number" />
+			<mapping app_key="override_control" title="Override Control" />
+			<mapping app_key="change_description" title="Change Description" />
+			<mapping app_key="description" title="Change Description" />
+			<mapping app_key="change_account" title="Account" />
+			<mapping app_key="account" title="Account" />
+		</app_title_mappings>
+	</job_config>
+<!-- 	<job_config>
+		<view_name>ArkonaR Testing</view_name>
+		<job_name>Nav_Regression_ArkonaR</job_name>
+		<classname_index>8</classname_index>
+		<test_name_delimiter>_nav[0-9]+_[0-9]+_navigation_</test_name_delimiter>
+		<results_parser>TestCaseNamesParser</results_parser>
+		<sheet_title>Navigation</sheet_title>
+		<test_filename_index>8</test_filename_index>
+	</job_config> -->
+	<job_config_group view_name="ArkonaR Testing">
+		<test_filename_index>8</test_filename_index>
+		<test_name_delimiter>test_scenario_[0-9]+[a-z]+_</test_name_delimiter>
+		<results_parser>TestCaseNamesParser</results_parser>
+		<sheet_title>GL0406R + GL2000R</sheet_title>
+		<job_config>
+			<app_title>GL0406R</app_title>
+			<job_name>GL0406R_Regression_ArkonaR</job_name>
+		</job_config>
+		<job_config>
+			<app_title>GL2000R</app_title>
+			<job_name>GL2000R_Regression_ArkonaR</job_name>
+		</job_config>
+	</job_config_group>
+<!-- 	<job_config>
+		<view_name>ArkonaR Testing</view_name>
+		<job_name>BO_Regression_ArkonaR</job_name>
+		<test_filename_index>8</test_filename_index>
+		<results_parser>TestCaseNamesParser</results_parser>
+		<sheet_title>B.O.</sheet_title>
+	</job_config>
+	<job_config>
+		<view_name>ArkonaR Testing</view_name>
+		<job_name>IN1000DB_Regression_ArkonaR</job_name>
+		<test_filename_index>8</test_filename_index>
+		<results_parser>TestCaseNamesParser</results_parser>
+		<sheet_title>IN1000DB</sheet_title>
+	</job_config> -->
+</reporting_config>
